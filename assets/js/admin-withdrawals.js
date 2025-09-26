@@ -5,6 +5,33 @@ const supabaseClient = window.supabaseClient || supabase.createClient(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJoZnFhZWJrdnh5YXl6cnBtamhsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg2NDMwNzgsImV4cCI6MjA3NDIxOTA3OH0.X8nTjGBnUoOB7AJG88cJnvr8oruLrHSqrjrxCfCh4hA'
 )
 
+// Create notification function for admin panel
+async function createAdminNotification(userId, title, message, type = 'info') {
+    try {
+        console.log('Creating admin notification:', { userId, title, message, type })
+        
+        const { error } = await supabaseClient
+            .from('notifications')
+            .insert({
+                user_id: userId,
+                title: title,
+                message: message,
+                type: type,
+                is_read: false,
+                created_at: new Date().toISOString()
+            })
+        
+        if (error) {
+            console.error('Error creating notification:', error)
+        } else {
+            console.log('Notification created successfully')
+        }
+        
+    } catch (error) {
+        console.error('Error in createAdminNotification:', error)
+    }
+}
+
 // Global variables
 let allWithdrawals = []
 let currentWithdrawalFilter = 'pending'
@@ -50,6 +77,19 @@ async function loadWithdrawals() {
         
         console.log('Withdrawals loaded:', allWithdrawals.length)
         
+        // Update navigation badge
+        const pendingWithdrawals = allWithdrawals.filter(w => w.status === 'pending').length
+        const withdrawalsBadge = document.getElementById('withdrawals-badge')
+        if (withdrawalsBadge) {
+            withdrawalsBadge.textContent = pendingWithdrawals
+        }
+        
+        // Update stats
+        const statsPendingWithdrawals = document.getElementById('stats-pending-withdrawals')
+        if (statsPendingWithdrawals) {
+            statsPendingWithdrawals.textContent = pendingWithdrawals
+        }
+        
     } catch (error) {
         console.error('Error loading withdrawals:', error)
         allWithdrawals = []
@@ -59,7 +99,13 @@ async function loadWithdrawals() {
 // Render withdrawals based on current filter
 function renderWithdrawals() {
     const withdrawalsList = document.getElementById('withdrawals-list')
-    if (!withdrawalsList) return
+    if (!withdrawalsList) {
+        console.error('withdrawals-list element not found')
+        return
+    }
+    
+    console.log('Rendering withdrawals with filter:', currentWithdrawalFilter)
+    console.log('Total withdrawals:', allWithdrawals.length)
     
     // Filter withdrawals based on current filter
     let filteredWithdrawals = allWithdrawals
@@ -67,21 +113,22 @@ function renderWithdrawals() {
         filteredWithdrawals = allWithdrawals.filter(w => w.status === currentWithdrawalFilter)
     }
     
+    console.log('Filtered withdrawals:', filteredWithdrawals.length)
+    
     if (filteredWithdrawals.length === 0) {
         withdrawalsList.innerHTML = '<p class="no-withdrawals">No withdrawals found for the selected filter.</p>'
         return
     }
     
-    console.log('Rendering withdrawals:', filteredWithdrawals.length)
-    
     withdrawalsList.innerHTML = `
-        <table class="withdrawals-table">
+        <table class="admin-table">
             <thead>
                 <tr>
                     <th>User</th>
                     <th>Amount</th>
                     <th>Method</th>
-                    <th>Account Info</th>
+                    <th>Account Name</th>
+                    <th>Account Number</th>
                     <th>Status</th>
                     <th>Date</th>
                     <th>Actions</th>
@@ -97,6 +144,7 @@ function renderWithdrawals() {
                             <td>${userName}</td>
                             <td>₱${withdrawal.amount.toFixed(2)}</td>
                             <td>${withdrawal.method.toUpperCase()}</td>
+                            <td>${withdrawal.account_name || 'Not provided'}</td>
                             <td>${withdrawal.account_info}</td>
                             <td><span class="status-badge ${withdrawal.status}">${withdrawal.status.toUpperCase()}</span></td>
                             <td>${new Date(withdrawal.created_at).toLocaleDateString()}</td>
@@ -115,10 +163,10 @@ function renderWithdrawals() {
 function getWithdrawalActions(withdrawal) {
     if (withdrawal.status === 'pending') {
         return `
-            <button class="btn btn-success" data-action="approve-withdrawal" data-withdrawal-id="${withdrawal.id}">
+            <button class="admin-btn admin-btn-success admin-btn-sm" data-action="approve-withdrawal" data-withdrawal-id="${withdrawal.id}">
                 Approve
             </button>
-            <button class="btn btn-danger" data-action="reject-withdrawal" data-withdrawal-id="${withdrawal.id}">
+            <button class="admin-btn admin-btn-danger admin-btn-sm" data-action="reject-withdrawal" data-withdrawal-id="${withdrawal.id}">
                 Reject
             </button>
         `
@@ -129,30 +177,41 @@ function getWithdrawalActions(withdrawal) {
 
 // Attach withdrawal event listeners
 function attachWithdrawalEventListeners() {
+    console.log('Attaching withdrawal event listeners...')
+    
     // Filter buttons
-    const filterButtons = document.querySelectorAll('.filter-btn')
+    const filterButtons = document.querySelectorAll('.admin-filter-btn')
+    console.log('Found filter buttons:', filterButtons.length)
+    
     filterButtons.forEach(button => {
         button.addEventListener('click', function() {
+            console.log('Filter button clicked:', this.getAttribute('data-filter'))
+            
             // Update active button
-            filterButtons.forEach(btn => btn.classList.remove('active', 'btn-primary'))
-            filterButtons.forEach(btn => btn.classList.add('btn-secondary'))
-            this.classList.remove('btn-secondary')
-            this.classList.add('active', 'btn-primary')
+            filterButtons.forEach(btn => btn.classList.remove('active'))
+            this.classList.add('active')
             
             // Update filter and re-render
             currentWithdrawalFilter = this.getAttribute('data-filter')
+            console.log('Current filter set to:', currentWithdrawalFilter)
             renderWithdrawals()
         })
     })
     
-    // Withdrawal action buttons
-    const actionButtons = document.querySelectorAll('[data-action]')
-    actionButtons.forEach(button => {
-        button.addEventListener('click', async function(e) {
-            e.preventDefault()
+    // Withdrawal action buttons - use event delegation
+    const withdrawalsList = document.getElementById('withdrawals-list')
+    if (withdrawalsList) {
+        withdrawalsList.addEventListener('click', async function(e) {
+            const button = e.target.closest('[data-action]')
+            if (!button) return
             
-            const action = this.getAttribute('data-action')
-            const withdrawalId = this.getAttribute('data-withdrawal-id')
+            e.preventDefault()
+            e.stopPropagation()
+            
+            const action = button.getAttribute('data-action')
+            const withdrawalId = button.getAttribute('data-withdrawal-id')
+            
+            console.log('Withdrawal action clicked:', action, 'ID:', withdrawalId)
             
             if (action === 'approve-withdrawal') {
                 await approveWithdrawal(withdrawalId)
@@ -160,7 +219,7 @@ function attachWithdrawalEventListeners() {
                 await rejectWithdrawal(withdrawalId)
             }
         })
-    })
+    }
 }
 
 // Approve withdrawal
@@ -177,49 +236,561 @@ async function approveWithdrawal(withdrawalId) {
         
         if (fetchError) {
             console.error('Error fetching withdrawal:', fetchError)
-            alert('Error fetching withdrawal: ' + fetchError.message)
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Fetching Withdrawal</h3>
+                            <p>Unable to fetch withdrawal details. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${fetchError.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error fetching withdrawal: ' + fetchError.message)
+            }
             return
         }
 
-        const { error } = await supabaseClient
-            .from('withdrawals')
-            .update({
-                status: 'approved',
-                processed_at: new Date().toISOString()
+        // Show approval modal with receipt upload option
+        showApprovalModal(withdrawalData)
+        
+    } catch (error) {
+        console.error('Error approving withdrawal:', error)
+        if (window.openModal) {
+            window.openModal({
+                title: 'Error',
+                content: `
+                    <div class="modal-error-content">
+                        <div class="modal-icon error">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>Error Approving Withdrawal</h3>
+                        <p>An unexpected error occurred while approving the withdrawal.</p>
+                        <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">${error.message}</span>
+                            </p>
+                        </div>
+                    </div>
+                `,
+                primaryButton: { text: 'OK', action: () => window.closeModal() },
+                closable: true
             })
+        } else {
+            alert('Error approving withdrawal: ' + error.message)
+        }
+    }
+}
+
+// Show approval modal with receipt upload
+function showApprovalModal(withdrawalData) {
+    if (window.openModal) {
+        window.openModal({
+            title: 'Approve Withdrawal',
+            content: `
+                <div class="approval-modal-content">
+                    <div class="withdrawal-details">
+                        <h4>Withdrawal Details</h4>
+                        <div class="detail-row">
+                            <span>Amount:</span>
+                            <span>₱${withdrawalData.amount.toFixed(2)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Method:</span>
+                            <span>${withdrawalData.method === 'gcash' ? 'GCash' : 'Bank Account'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Account Name:</span>
+                            <span>${withdrawalData.account_name || 'Not provided'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Account Number:</span>
+                            <span>${withdrawalData.account_info}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span>Requested:</span>
+                            <span>${new Date(withdrawalData.created_at).toLocaleString()}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="receipt-upload-section">
+                        <h4>Receipt Proof (Optional)</h4>
+                        <p class="upload-note">Upload a receipt or proof of payment for record keeping.</p>
+                        
+                        <div class="file-upload-area" id="receipt-upload-area">
+                            <input type="file" id="receipt-file" accept="image/*,.pdf" style="display: none;">
+                            <div class="upload-placeholder" id="upload-placeholder">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <polyline points="10,9 9,9 8,9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <p>Click to upload receipt</p>
+                                <small>Supports: JPG, PNG, PDF (Max 5MB)</small>
+                            </div>
+                            <div class="file-preview" id="file-preview" style="display: none;">
+                                <div class="preview-content">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <span id="file-name">File selected</span>
+                                </div>
+                                <button type="button" id="remove-file" class="remove-file-btn">×</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            primaryButton: {
+                text: 'Approve & Process',
+                action: async () => {
+                    const fileInput = document.getElementById('receipt-file');
+                    const file = fileInput.files[0];
+                    
+                    // Process approval with optional receipt
+                    await processWithdrawalApproval(withdrawalData.id, file);
+                    return true; // Close modal
+                }
+            },
+            secondaryButton: {
+                text: 'Cancel',
+                action: () => true // Close modal
+            },
+            closable: true
+        });
+        
+        // Setup file upload functionality
+        setupReceiptUpload();
+    } else {
+        // Fallback to direct approval
+        processWithdrawalApproval(withdrawalData.id, null);
+    }
+}
+
+// Setup receipt upload functionality
+function setupReceiptUpload() {
+    const uploadArea = document.getElementById('receipt-upload-area');
+    const fileInput = document.getElementById('receipt-file');
+    const placeholder = document.getElementById('upload-placeholder');
+    const preview = document.getElementById('file-preview');
+    const fileName = document.getElementById('file-name');
+    const removeBtn = document.getElementById('remove-file');
+    
+    if (!uploadArea || !fileInput || !placeholder || !preview) return;
+    
+    // Click to upload
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
+    
+    // File selection
+    fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                if (window.openModal) {
+                    window.openModal({
+                        title: 'File Too Large',
+                        content: `
+                            <div class="modal-error-content">
+                                <div class="modal-icon error">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <h3>File Too Large</h3>
+                                <p>File size must be less than 5MB. Please select a smaller file.</p>
+                            </div>
+                        `,
+                        primaryButton: { text: 'OK', action: () => window.closeModal() },
+                        closable: true
+                    })
+                } else {
+                    alert('File size must be less than 5MB');
+                }
+                fileInput.value = '';
+                return;
+            }
+            
+            // Validate file type
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+            if (!allowedTypes.includes(file.type)) {
+                if (window.openModal) {
+                    window.openModal({
+                        title: 'Invalid File Type',
+                        content: `
+                            <div class="modal-error-content">
+                                <div class="modal-icon error">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                        <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <h3>Invalid File Type</h3>
+                                <p>Please select a valid file (JPG, PNG, or PDF).</p>
+                            </div>
+                        `,
+                        primaryButton: { text: 'OK', action: () => window.closeModal() },
+                        closable: true
+                    })
+                } else {
+                    alert('Please select a valid file (JPG, PNG, or PDF)');
+                }
+                fileInput.value = '';
+                return;
+            }
+            
+            fileName.textContent = file.name;
+            placeholder.style.display = 'none';
+            preview.style.display = 'flex';
+        }
+    });
+    
+    // Remove file
+    if (removeBtn) {
+        removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.value = '';
+            placeholder.style.display = 'flex';
+            preview.style.display = 'none';
+        });
+    }
+}
+
+// Process withdrawal approval with receipt
+async function processWithdrawalApproval(withdrawalId, receiptFile) {
+    try {
+        console.log('Processing withdrawal approval:', withdrawalId, 'Receipt:', !!receiptFile)
+        
+        let receiptUrl = null;
+        
+        // Upload receipt if provided
+        if (receiptFile) {
+            console.log('Uploading receipt file...')
+            const fileExt = receiptFile.name.split('.').pop();
+            const fileName = `receipt_${withdrawalId}_${Date.now()}.${fileExt}`;
+            
+            // Use the 'receipts' bucket for admin uploads
+            const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                .from('receipts')
+                .upload(fileName, receiptFile, {
+                    cacheControl: '3600',
+                    upsert: false
+                });
+            
+            if (uploadError) {
+                console.error('Error uploading receipt:', uploadError)
+                // Continue with approval even if receipt upload fails
+            } else {
+                // Get the public URL for the uploaded file
+                const { data: urlData } = supabaseClient.storage
+                    .from('receipts')
+                    .getPublicUrl(fileName);
+                receiptUrl = urlData.publicUrl;
+                console.log('Receipt uploaded successfully:', receiptUrl)
+                
+                // Create notification for user about receipt upload
+                const { data: withdrawalData } = await supabaseClient
+                    .from('withdrawals')
+                    .select('user_id, amount, method')
+                    .eq('id', withdrawalId)
+                    .single()
+                
+                if (withdrawalData) {
+                    await createAdminNotification(
+                        withdrawalData.user_id,
+                        'Receipt Proof Uploaded',
+                        `A receipt proof has been uploaded for your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method === 'gcash' ? 'GCash' : 'Bank Account'}.`,
+                        'info'
+                    )
+                }
+            }
+        }
+        
+        // Update withdrawal status
+        const updateData = {
+            status: 'approved',
+            processed_at: new Date().toISOString()
+        };
+        
+        // Store receipt URL in database if receipt was uploaded
+        if (receiptUrl) {
+            updateData.receipt_url = receiptUrl;
+            console.log('Storing receipt URL in database:', receiptUrl);
+            console.log('Update data before database call:', updateData);
+        } else {
+            console.log('No receipt URL to store');
+        }
+        
+        console.log('Updating withdrawal with data:', updateData);
+        const { data: updateResult, error } = await supabaseClient
+            .from('withdrawals')
+            .update(updateData)
             .eq('id', withdrawalId)
+            .select()
+        
+        console.log('Database update result:', { updateResult, error });
         
         if (error) {
             console.error('Error approving withdrawal:', error)
-            alert('Error approving withdrawal: ' + error.message)
+            console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                details: error.details,
+                hint: error.hint
+            })
+            
+            // If error is related to receipt_url column, try without it
+            if (error.message && error.message.includes('receipt_url')) {
+                console.log('Receipt URL column not found, trying without it...');
+                const fallbackData = {
+                    status: 'approved',
+                    processed_at: new Date().toISOString(),
+                    admin_notes: receiptUrl ? `Receipt proof: ${receiptUrl}` : 'Withdrawal approved'
+                };
+                
+                const { error: fallbackError } = await supabaseClient
+                    .from('withdrawals')
+                    .update(fallbackData)
+                    .eq('id', withdrawalId)
+                
+                if (fallbackError) {
+                    console.error('Fallback update also failed:', fallbackError);
+                } else {
+                    console.log('Fallback update successful, receipt stored in admin_notes');
+                    // Continue with success flow
+                    return await handleApprovalSuccess(withdrawalId, receiptUrl);
+                }
+            }
+            
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Approving Withdrawal</h3>
+                            <p>Unable to approve withdrawal. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${error.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error approving withdrawal: ' + error.message)
+            }
             return
         }
         
         console.log('Withdrawal approved successfully')
+        return await handleApprovalSuccess(withdrawalId, receiptUrl);
+    } catch (error) {
+        console.error('Error in processWithdrawalApproval:', error)
+        if (window.openModal) {
+            window.openModal({
+                title: 'Error',
+                content: `
+                    <div class="modal-error-content">
+                        <div class="modal-icon error">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>Error Approving Withdrawal</h3>
+                        <p>An unexpected error occurred. Please try again.</p>
+                    </div>
+                `,
+                primaryButton: { text: 'OK', action: () => window.closeModal() },
+                closable: true
+            })
+        } else {
+            alert('Error approving withdrawal: ' + error.message)
+        }
+    }
+}
+
+// Handle approval success (extracted to avoid duplication)
+async function handleApprovalSuccess(withdrawalId, receiptUrl) {
+    // Get withdrawal data for success modal and notification
+    const { data: updatedWithdrawalData } = await supabaseClient
+        .from('withdrawals')
+        .select('*')
+        .eq('id', withdrawalId)
+        .single()
+    
+    if (window.openModal) {
+        window.openModal({
+            title: 'Success',
+            content: `
+                <div class="modal-success-content">
+                    <div class="modal-icon success">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                    </div>
+                    <h3>Withdrawal Approved</h3>
+                    <p>Withdrawal has been successfully approved and processed.</p>
+                    ${updatedWithdrawalData ? `
+                        <div style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #059669; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon info-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">Amount: ₱${updatedWithdrawalData.amount.toFixed(2)} via ${updatedWithdrawalData.method.toUpperCase()}</span>
+                            </p>
+                            ${receiptUrl ? `
+                                <p style="color: #059669; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 8px 0 0 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon info-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">Receipt uploaded successfully</span>
+                                </p>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                </div>
+            `,
+            primaryButton: { text: 'OK', action: () => window.closeModal() },
+            closable: true
+        })
+    } else {
         alert('Withdrawal approved successfully!')
-        
-        // Create notification for user
-        await window.createNotification(
-            withdrawalData.user_id,
+    }
+    
+    // Create notification for user
+    if (updatedWithdrawalData) {
+        await createAdminNotification(
+            updatedWithdrawalData.user_id,
             'Withdrawal Approved',
-            `Your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} has been approved and processed.`,
+            `Your withdrawal of ₱${updatedWithdrawalData.amount} via ${updatedWithdrawalData.method === 'gcash' ? 'GCash' : 'Bank Account'} has been approved and processed.`,
             'success'
         )
-        
-        // Reload data
-        await loadWithdrawals()
-        renderWithdrawals()
-        
-    } catch (error) {
-        console.error('Error approving withdrawal:', error)
-        alert('Error approving withdrawal: ' + error.message)
     }
+    
+    // Reload data
+    await loadWithdrawals()
+    renderWithdrawals()
 }
 
 // Reject withdrawal and return funds
 async function rejectWithdrawal(withdrawalId) {
+    // Show reason input modal first
+    if (window.openModal) {
+        window.openModal({
+            title: 'Reject Withdrawal',
+            content: `
+                <div class="modal-form-content">
+                    <div class="modal-warning-content">
+                        <div class="modal-icon warning">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/>
+                                <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>Reject Withdrawal</h3>
+                        <p>Please provide a reason for rejecting this withdrawal. The funds will be returned to the user's wallet.</p>
+                    </div>
+                    
+                    <form id="reject-withdrawal-form">
+                        <div class="form-group">
+                            <label for="rejection-reason">Reason for Rejection *</label>
+                            <textarea id="rejection-reason" rows="4" placeholder="Please provide a detailed reason for rejecting this withdrawal..." required></textarea>
+                            <small>This reason will be sent to the user via notification.</small>
+                        </div>
+                        <div id="reject-error" class="error-message" style="display: none;"></div>
+                    </form>
+                </div>
+            `,
+            primaryButton: { 
+                text: 'Reject Withdrawal', 
+                action: () => {
+                    const reason = document.getElementById('rejection-reason').value.trim()
+                    if (!reason) {
+                        document.getElementById('reject-error').textContent = 'Please provide a reason for rejection'
+                        document.getElementById('reject-error').style.display = 'block'
+                        return
+                    }
+                    window.closeModal()
+                    processWithdrawalRejection(withdrawalId, reason)
+                }
+            },
+            closable: true
+        })
+    } else {
+        const reason = prompt('Please provide a reason for rejection:')
+        if (!reason) {
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Reason Required',
+                    content: `
+                        <div class="modal-warning-content">
+                            <div class="modal-icon warning">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Reason Required</h3>
+                            <p>Rejection requires a reason. Please provide a reason for rejecting this withdrawal.</p>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Rejection requires a reason.')
+            }
+            return
+        }
+        processWithdrawalRejection(withdrawalId, reason)
+    }
+}
+
+// Process withdrawal rejection with reason
+async function processWithdrawalRejection(withdrawalId, reason) {
     try {
-        console.log('Rejecting withdrawal:', withdrawalId)
+        console.log('Rejecting withdrawal:', withdrawalId, 'Reason:', reason)
         
         // Get withdrawal details first
         const { data: withdrawalData, error: fetchError } = await supabaseClient
@@ -230,7 +801,34 @@ async function rejectWithdrawal(withdrawalId) {
         
         if (fetchError) {
             console.error('Error fetching withdrawal:', fetchError)
-            alert('Error fetching withdrawal: ' + fetchError.message)
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Fetching Withdrawal</h3>
+                            <p>Unable to fetch withdrawal details. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${fetchError.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error fetching withdrawal: ' + fetchError.message)
+            }
             return
         }
         
@@ -245,7 +843,34 @@ async function rejectWithdrawal(withdrawalId) {
         
         if (updateError) {
             console.error('Error rejecting withdrawal:', updateError)
-            alert('Error rejecting withdrawal: ' + updateError.message)
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Rejecting Withdrawal</h3>
+                            <p>Unable to reject withdrawal. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${updateError.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error rejecting withdrawal: ' + updateError.message)
+            }
             return
         }
         
@@ -258,24 +883,50 @@ async function rejectWithdrawal(withdrawalId) {
         
         if (walletFetchError) {
             console.error('Error fetching wallet:', walletFetchError)
-            alert('Error fetching wallet: ' + walletFetchError.message)
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Fetching Wallet</h3>
+                            <p>Unable to fetch user wallet. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${walletFetchError.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error fetching wallet: ' + walletFetchError.message)
+            }
             return
         }
         
-        // Return funds to user wallet
-        const newBalance = (currentWallet?.balance || 0) + withdrawalData.amount
+        // Return funds to user wallet by adding the refund amount
         const { error: walletError } = await supabaseClient
             .from('user_wallets')
-            .upsert({
-                user_id: withdrawalData.user_id,
-                balance: newBalance
+            .update({
+                balance: currentWallet.balance + withdrawalData.amount
             })
+            .eq('user_id', withdrawalData.user_id)
         
         // Also update profiles table
         const { error: profileError } = await supabaseClient
             .from('profiles')
             .update({
-                balance: newBalance
+                balance: currentWallet.balance + withdrawalData.amount
             })
             .eq('id', withdrawalData.user_id)
         
@@ -286,18 +937,109 @@ async function rejectWithdrawal(withdrawalId) {
         
         if (walletError) {
             console.error('Error returning funds:', walletError)
-            alert('Error returning funds: ' + walletError.message)
+            if (window.openModal) {
+                window.openModal({
+                    title: 'Error',
+                    content: `
+                        <div class="modal-error-content">
+                            <div class="modal-icon error">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                </svg>
+                            </div>
+                            <h3>Error Returning Funds</h3>
+                            <p>Unable to return funds to user wallet. Please try again.</p>
+                            <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                                <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                    <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                    <span style="text-align: left;">${walletError.message}</span>
+                                </p>
+                            </div>
+                        </div>
+                    `,
+                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                    closable: true
+                })
+            } else {
+                alert('Error returning funds: ' + walletError.message)
+            }
             return
         }
         
-        console.log('Withdrawal rejected and funds returned successfully')
-        alert('Withdrawal rejected successfully! Funds have been returned to user wallet.')
+        // Create transaction record for refund
+        const { error: transactionError } = await supabaseClient
+            .from('transactions')
+            .insert({
+                user_id: withdrawalData.user_id,
+                amount: withdrawalData.amount,
+                type: 'refund',
+                description: `Withdrawal refund: ${withdrawalData.method} - ${reason || 'Withdrawal rejected by admin'}`,
+                created_at: new Date().toISOString()
+            })
+        
+        if (transactionError) {
+            console.error('Error creating refund transaction record:', transactionError)
+            // Don't fail the refund for transaction errors
+        }
         
         // Create notification for user
-        await window.createNotification(
+        const { error: notificationError } = await supabaseClient
+            .from('notifications')
+            .insert({
+                user_id: withdrawalData.user_id,
+                title: 'Withdrawal Rejected',
+                message: `Your withdrawal request of ₱${withdrawalData.amount.toFixed(2)} has been rejected. The amount has been refunded to your wallet. Reason: ${reason || 'No reason provided'}`,
+                type: 'warning',
+                created_at: new Date().toISOString()
+            })
+        
+        if (notificationError) {
+            console.error('Error creating notification:', notificationError)
+            // Don't fail the refund for notification errors
+        }
+        
+        console.log('Withdrawal rejected and funds returned successfully')
+        if (window.openModal) {
+            window.openModal({
+                title: 'Success',
+                content: `
+                    <div class="modal-success-content">
+                        <div class="modal-icon success">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>Withdrawal Rejected</h3>
+                        <p>Withdrawal has been successfully rejected and funds have been returned to the user's wallet.</p>
+                        <div style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #059669; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon info-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">Amount: ₱${withdrawalData.amount.toFixed(2)} via ${withdrawalData.method.toUpperCase()}</span>
+                            </p>
+                        </div>
+                        <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 191, 36, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #d97706; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">Reason: ${reason}</span>
+                            </p>
+                        </div>
+                    </div>
+                `,
+                primaryButton: { text: 'OK', action: () => window.closeModal() },
+                closable: true
+            })
+        } else {
+            alert('Withdrawal rejected successfully! Funds have been returned to user wallet.')
+        }
+        
+        // Create notification for user
+        await createAdminNotification(
             withdrawalData.user_id,
             'Withdrawal Rejected',
-            `Your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} was rejected. The amount has been returned to your wallet.`,
+            `Your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} was rejected. Reason: ${reason}. The amount has been returned to your wallet.`,
             'warning'
         )
         
@@ -307,7 +1049,34 @@ async function rejectWithdrawal(withdrawalId) {
         
     } catch (error) {
         console.error('Error rejecting withdrawal:', error)
-        alert('Error rejecting withdrawal: ' + error.message)
+        if (window.openModal) {
+            window.openModal({
+                title: 'Error',
+                content: `
+                    <div class="modal-error-content">
+                        <div class="modal-icon error">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>Unexpected Error</h3>
+                        <p>An unexpected error occurred while rejecting withdrawal.</p>
+                        <div style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(220, 38, 38, 0.05)); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #dc2626; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon warning-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">${error.message}</span>
+                            </p>
+                        </div>
+                    </div>
+                `,
+                primaryButton: { text: 'OK', action: () => window.closeModal() },
+                closable: true
+            })
+        } else {
+            alert('Error rejecting withdrawal: ' + error.message)
+        }
     }
 }
 

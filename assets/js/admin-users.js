@@ -7,87 +7,110 @@ const supabaseClient = window.supabaseClient || supabase.createClient(
 
 // Global variables
 let allUsers = []
-let dashboardStats = {}
+let dashboardStats = {
+    totalUsers: 0,
+    activeTasks: 0,
+    pendingSubmissions: 0,
+    totalRewardsPaid: 0,
+    totalEarnings: 0,
+    completedTasks: 0,
+    activeTasksCount: 0,
+    pendingWithdrawals: 0,
+    totalWithdrawals: 0
+}
 
 // Load dashboard statistics
 async function loadDashboardStats() {
     try {
+        console.log('Loading comprehensive dashboard statistics...')
+        
+        // Execute all queries in parallel for better performance
+        const [
+            usersResult,
+            tasksResult,
+            submissionsResult,
+            withdrawalsResult,
+            transactionsResult
+        ] = await Promise.all([
         // Total users count (exclude admin accounts)
-        const { count: totalUsers, error: usersError } = await supabaseClient
+            supabaseClient
             .from('profiles')
             .select('*', { count: 'exact', head: true })
-            .eq('role', 'user')
-        
-        // Active tasks count
-        const { count: activeTasks, error: tasksError } = await supabaseClient
-            .from('task_submissions')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['available', 'in_progress'])
-        
-        // Pending submissions count
-        const { count: pendingCount, error: pendingError } = await supabaseClient
-            .from('task_submissions')
-            .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending_review')
-        
-        // Total rewards paid - use transactions table for accurate tracking
-        let totalRewardsPaid = 0
-        try {
-            const { data: transactions, error: transactionsError } = await supabaseClient
-                .from('transactions')
-                .select('amount, type')
-                .eq('type', 'reward')
+                .eq('role', 'user'),
             
-            if (transactionsError) {
-                console.error('Error loading transactions:', transactionsError)
-                // Fallback to old method if transactions table fails
-                const { data: approvedSubmissions } = await supabaseClient
-                    .from('task_submissions')
-                    .select('task_id')
-                    .in('status', ['approved', 'completed'])
-                
-                if (approvedSubmissions && approvedSubmissions.length > 0) {
-                    const taskIds = [...new Set(approvedSubmissions.map(s => s.task_id))]
-                    if (taskIds.length > 0) {
-                        const { data: tasksData } = await supabaseClient
-                            .from('tasks')
-                            .select('id, reward_amount')
-                            .in('id', taskIds)
-                        
-                        if (tasksData) {
-                            const taskCounts = {}
-                            approvedSubmissions.forEach(sub => {
-                                taskCounts[sub.task_id] = (taskCounts[sub.task_id] || 0) + 1
-                            })
-                            
-                            totalRewardsPaid = tasksData.reduce((sum, task) => {
-                                const count = taskCounts[task.id] || 0
-                                return sum + (task.reward_amount * count)
-                            }, 0)
-                        }
-                    }
-                }
-            } else {
-                // Use transactions table for accurate calculation
-                console.log('Transactions found:', transactions)
-                totalRewardsPaid = transactions?.reduce((sum, transaction) => {
-                    const amount = parseFloat(transaction.amount) || 0
-                    console.log(`Transaction: type=${transaction.type}, amount=${amount}`)
-                    return sum + amount
-                }, 0) || 0
-                console.log('Total rewards paid from transactions:', totalRewardsPaid)
-            }
-        } catch (error) {
-            console.error('Error calculating total rewards paid:', error)
-            totalRewardsPaid = 0
+            // All tasks for comprehensive stats
+            supabaseClient
+                .from('tasks')
+                .select('id, status, reward_amount, created_at'),
+            
+            // All submissions for comprehensive stats
+            supabaseClient
+                .from('task_submissions')
+                .select('id, status, task_id, created_at'),
+            
+            // All withdrawals for comprehensive stats
+            supabaseClient
+                .from('withdrawals')
+                .select('id, status, amount, created_at'),
+            
+            // All transactions for accurate financial tracking
+            supabaseClient
+                .from('transactions')
+                .select('amount, type, created_at')
+        ])
+        
+        // Process users data
+        const totalUsers = usersResult.count || 0
+        console.log('Total users:', totalUsers)
+        
+        // Process tasks data
+        const allTasks = tasksResult.data || []
+        const activeTasksCount = allTasks.filter(task => task.status === 'active').length
+        const completedTasksCount = allTasks.filter(task => task.status === 'completed').length
+        console.log('Tasks stats:', { total: allTasks.length, active: activeTasksCount, completed: completedTasksCount })
+        
+        // Process submissions data
+        const allSubmissions = submissionsResult.data || []
+        const pendingSubmissionsCount = allSubmissions.filter(sub => sub.status === 'pending_review').length
+        const approvedSubmissionsCount = allSubmissions.filter(sub => sub.status === 'approved').length
+        console.log('Submissions stats:', { total: allSubmissions.length, pending: pendingSubmissionsCount, approved: approvedSubmissionsCount })
+        
+        // Process withdrawals data
+        const allWithdrawals = withdrawalsResult.data || []
+        const pendingWithdrawalsCount = allWithdrawals.filter(w => w.status === 'pending').length
+        const totalWithdrawalsAmount = allWithdrawals
+            .filter(w => w.status === 'approved')
+            .reduce((sum, w) => sum + (parseFloat(w.amount) || 0), 0)
+        console.log('Withdrawals stats:', { total: allWithdrawals.length, pending: pendingWithdrawalsCount, totalAmount: totalWithdrawalsAmount })
+        
+        // Process transactions data
+        const allTransactions = transactionsResult.data || []
+        const rewardTransactions = allTransactions.filter(t => t.type === 'reward')
+        const totalRewardsPaid = rewardTransactions.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+        
+        // Calculate total earnings (sum of all task rewards)
+        const totalEarnings = allTasks.reduce((sum, task) => sum + (parseFloat(task.reward_amount) || 0), 0)
+        
+        console.log('Financial stats:', { 
+            totalRewardsPaid, 
+            totalEarnings, 
+            totalWithdrawals: totalWithdrawalsAmount 
+        })
+        
+        // Update dashboard stats
+        dashboardStats = {
+            totalUsers,
+            activeTasks: activeTasksCount,
+            pendingSubmissions: pendingSubmissionsCount,
+            totalRewardsPaid,
+            totalEarnings,
+            completedTasks: approvedSubmissionsCount, // Using approved submissions as completed tasks
+            activeTasksCount,
+            pendingWithdrawals: pendingWithdrawalsCount,
+            totalWithdrawals: totalWithdrawalsAmount
         }
         
-        dashboardStats = {
-            totalUsers: totalUsers || 0,
-            activeTasks: activeTasks || 0,
-            pendingSubmissions: pendingCount || 0,
-            totalRewardsPaid: totalRewardsPaid
-        }
+        console.log('Dashboard stats loaded:', dashboardStats)
         
     } catch (error) {
         console.error('Error loading dashboard stats:', error)
@@ -95,7 +118,12 @@ async function loadDashboardStats() {
             totalUsers: 0,
             activeTasks: 0,
             pendingSubmissions: 0,
-            totalRewardsPaid: 0
+            totalRewardsPaid: 0,
+            totalEarnings: 0,
+            completedTasks: 0,
+            activeTasksCount: 0,
+            pendingWithdrawals: 0,
+            totalWithdrawals: 0
         }
     }
 }
@@ -144,6 +172,9 @@ async function loadUsers() {
         
         console.log('Users loaded:', allUsers.length)
         
+        // Render dashboard stats for user-related stats
+        renderDashboardStats()
+        
     } catch (error) {
         console.error('Error loading users:', error)
         allUsers = []
@@ -152,27 +183,41 @@ async function loadUsers() {
 
 // Render dashboard stats
 function renderDashboardStats() {
-    const statsContainer = document.querySelector('.admin-stats')
-    if (!statsContainer) return
+    console.log('Rendering dashboard stats:', dashboardStats)
     
-    statsContainer.innerHTML = `
-        <div class="stat-card">
-            <h3>${dashboardStats.totalUsers}</h3>
-            <p>Total Users</p>
-        </div>
-        <div class="stat-card">
-            <h3>${dashboardStats.activeTasks}</h3>
-            <p>Active Tasks</p>
-        </div>
-        <div class="stat-card">
-            <h3>${dashboardStats.pendingSubmissions}</h3>
-            <p>Pending Submissions</p>
-        </div>
-        <div class="stat-card">
-            <h3>₱${dashboardStats.totalRewardsPaid.toFixed(2)}</h3>
-            <p>Total Rewards Paid</p>
-        </div>
-    `
+    // Update all admin stats elements
+    const statsElements = {
+        // First row - existing stats
+        'stats-total-users': dashboardStats.totalUsers || 0,
+        'stats-total-tasks': dashboardStats.activeTasksCount || 0,
+        'stats-pending-submissions': dashboardStats.pendingSubmissions || 0,
+        'stats-pending-withdrawals': dashboardStats.pendingWithdrawals || 0,
+        
+        // Second row - new comprehensive analytics
+        'stats-total-paid': `₱${(dashboardStats.totalRewardsPaid || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'stats-total-earnings': `₱${(dashboardStats.totalEarnings || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        'stats-completed-tasks': dashboardStats.completedTasks || 0,
+        'stats-active-tasks': dashboardStats.activeTasksCount || 0
+    }
+    
+    // Update each stat element
+    Object.entries(statsElements).forEach(([id, value]) => {
+        const element = document.getElementById(id)
+        if (element) {
+            element.textContent = value
+            console.log(`Updated ${id}: ${value}`)
+        } else {
+            console.warn(`Element not found: ${id}`)
+        }
+    })
+    
+    // Update navigation badges
+    const submissionsBadge = document.getElementById('submissions-badge')
+    if (submissionsBadge) {
+        submissionsBadge.textContent = dashboardStats.pendingSubmissions || 0
+    }
+    
+    console.log('Dashboard stats rendered successfully')
 }
 
 // Render users list
@@ -188,7 +233,7 @@ function renderUsers() {
     console.log('Rendering users:', allUsers.length)
     
     usersContainer.innerHTML = `
-        <table class="users-table">
+        <table class="admin-table">
             <thead>
                 <tr>
                     <th>Username</th>
@@ -217,14 +262,14 @@ function renderUsers() {
                             <td>${new Date(user.created_at).toLocaleDateString()}</td>
                             <td><span class="status-badge ${isActive ? 'active' : 'inactive'}">${isActive ? 'Active' : 'Inactive'}</span></td>
                             <td>
-                                <button class="btn btn-sm btn-primary" data-action="view-user" data-user-id="${user.id}">
+                                <button class="admin-btn admin-btn-secondary admin-btn-sm" data-action="view-user" data-user-id="${user.id}">
                                     View
                                 </button>
-                                <button class="btn btn-sm ${isActive ? 'btn-warning' : 'btn-success'}" 
+                                <button class="admin-btn ${isActive ? 'admin-btn-warning' : 'admin-btn-success'} admin-btn-sm" 
                                         data-action="toggle-user" data-user-id="${user.id}">
                                     ${isActive ? 'Disable' : 'Enable'}
                                 </button>
-                                <button class="btn btn-sm btn-secondary" data-action="update-balance" data-user-id="${user.id}">
+                                <button class="admin-btn admin-btn-info admin-btn-sm" data-action="update-balance" data-user-id="${user.id}">
                                     Update Balance
                                 </button>
                             </td>
@@ -315,7 +360,35 @@ async function toggleUserStatus(userId) {
         }
         
         console.log('User status updated successfully')
-        alert(`User ${newStatus ? 'enabled' : 'disabled'} successfully!`)
+        
+        // Show success message with modal
+        if (window.openModal) {
+            window.openModal({
+                title: 'User Status Updated',
+                content: `
+                    <div class="modal-success-content">
+                        <div class="modal-icon success">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                        </div>
+                        <h3>User ${newStatus ? 'Enabled' : 'Disabled'}</h3>
+                        <p>User account has been ${newStatus ? 'enabled' : 'disabled'} successfully.</p>
+                        <div style="background: linear-gradient(135deg, rgba(5, 150, 105, 0.1), rgba(16, 185, 129, 0.05)); border: 1px solid rgba(5, 150, 105, 0.2); border-radius: 8px; padding: 12px; margin: 16px 0; text-align: left;">
+                            <p style="color: #059669; font-weight: 500; font-size: 0.875rem; line-height: 1.5; margin: 0; display: flex; align-items: flex-start; gap: 6px; text-align: left;">
+                                <span class="custom-icon info-icon" style="margin-top: 1px; flex-shrink: 0;"></span> 
+                                <span style="text-align: left;">${newStatus ? 'User can now access all platform features.' : 'User cannot access tasks, wallet, or activity features.'}</span>
+                            </p>
+                        </div>
+                    </div>
+                `,
+                primaryButton: { text: 'OK', action: () => window.closeModal() },
+                closable: true
+            })
+        } else {
+            alert(`User ${newStatus ? 'enabled' : 'disabled'} successfully!`)
+        }
         
         // Reload users
         await loadUsers()
@@ -416,6 +489,16 @@ User Details:
     }
 }
 
+// Refresh analytics data periodically
+function startAnalyticsRefresh() {
+    // Refresh every 30 seconds
+    setInterval(async () => {
+        console.log('Refreshing analytics data...')
+        await loadDashboardStats()
+        renderDashboardStats()
+    }, 30000)
+}
+
 // Export functions for global access
 window.loadDashboardStats = loadDashboardStats
 window.loadUsers = loadUsers
@@ -426,3 +509,4 @@ window.updateUserBalance = updateUserBalance
 window.viewUserDetails = viewUserDetails
 window.attachUserEventListeners = attachUserEventListeners
 window.viewUser = viewUser
+window.startAnalyticsRefresh = startAnalyticsRefresh

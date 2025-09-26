@@ -6,26 +6,237 @@
     <title>Register - Questa</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="stylesheet" href="/assets/css/ui-modal.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <div id="app">
-        <div class="container">
-            <h1>Register</h1>
-            <form id="signup-form">
-                <div class="form-group">
-                    <label for="signup-email">Email</label>
-                    <input type="email" id="signup-email" name="email" required>
+        <!-- Mobile-First Auth Layout -->
+        <div class="auth-layout">
+            <!-- Brand Header -->
+            <div class="auth-brand">
+                <a href="/" class="brand-link">
+                    <img src="/logo.svg" alt="Questa" class="brand-icon" width="56" height="56">
+                    <span class="brand-text">Questa</span>
+                </a>
+            </div>
+            
+            <!-- Auth Card -->
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1 class="auth-title">Join Questa</h1>
+                    <p class="auth-subtitle">Create your account to start earning rewards</p>
                 </div>
+                
+                <form id="signup-form" class="auth-form" novalidate>
+                    <div class="form-group">
+                        <label for="signup-email">Email Address</label>
+                        <input 
+                            type="email" 
+                            id="signup-email" 
+                            name="email" 
+                            placeholder="Enter your email address" 
+                            autocomplete="email"
+                            required
+                        >
+                        <div class="error-message" id="email-error"></div>
+                    </div>
+                    
                 <div class="form-group">
                     <label for="signup-password">Password</label>
-                    <input type="password" id="signup-password" name="password" required>
+                        <div class="password-input-wrapper">
+                            <input 
+                                type="password" 
+                                id="signup-password" 
+                                name="password" 
+                                placeholder="Create a secure password" 
+                                autocomplete="new-password"
+                                required
+                                minlength="8"
+                            >
+                            <button type="button" class="password-toggle" id="toggle-password" aria-label="Show password">
+                                <svg class="eye-icon eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="eye-icon eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12A18.45 18.45 0 0 1 5.06 5.06L17.94 17.94Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4C19 4 23 12 23 12A18.5 18.5 0 0 1 19.1 19.76L9.9 4.24Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="error-message" id="password-error"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="confirm-password">Confirm Password</label>
+                        <div class="password-input-wrapper">
+                            <input 
+                                type="password" 
+                                id="confirm-password" 
+                                name="confirmPassword" 
+                                placeholder="Confirm your password" 
+                                autocomplete="new-password"
+                                required
+                            >
+                            <button type="button" class="password-toggle" id="toggle-confirm-password" aria-label="Show confirm password">
+                                <svg class="eye-icon eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="eye-icon eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12A18.45 18.45 0 0 1 5.06 5.06L17.94 17.94Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4C19 4 23 12 23 12A18.5 18.5 0 0 1 19.1 19.76L9.9 4.24Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="error-message" id="confirmPassword-error"></div>
+                    </div>
+                    
+                    <div class="form-group checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="terms-checkbox" name="terms" required>
+                            <span class="checkmark"></span>
+                            I agree to the <a href="#" class="link" id="terms-link">Terms & Conditions</a> and <a href="#" class="link" id="privacy-link">Privacy Policy</a>
+                        </label>
+                        <div class="error-message" id="terms-error"></div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
+                        <span class="btn-text">Create Account</span>
+                        <span class="btn-spinner" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </button>
+                </form>
+                
+                <div class="auth-links">
+                    <p>Already have an account? <a href="/login" class="link">Sign in here</a></p>
                 </div>
-                <button type="submit" class="btn btn-primary">Register</button>
-            </form>
+            </div>
         </div>
     </div>
+    
+    <!-- Scripts -->
     <script type="module" src="/assets/js/supabase.js"></script>
+    <script type="module" src="/assets/js/ui-modal.js"></script>
     <script type="module" src="/assets/js/auth.js"></script>
+    <script type="module" src="/assets/js/auth-register.js"></script>
+    
+    <!-- Modal functionality for Terms & Privacy -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Terms & Conditions modal content
+            const termsContent = `
+                <div class="modal-scrollable">
+                    <p><strong>Disclaimer:</strong> This is a general draft. Consult a legal professional for compliance.</p>
+                    
+                    <h3>1. Acceptance of Terms</h3>
+                    <p>By accessing and using Questa, you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.</p>
+                    
+                    <h3>2. User Responsibilities</h3>
+                    <p>Users are responsible for maintaining the confidentiality of their account credentials and for all activities that occur under their account. Users must provide accurate and complete information during registration.</p>
+                    
+                    <h3>3. Earnings & Withdrawals</h3>
+                    <p>Earnings are subject to verification and may be withheld if fraudulent activity is detected. Withdrawal requests are processed within 3-5 business days. Questa reserves the right to modify earning rates and withdrawal policies.</p>
+                    
+                    <h3>4. Prohibited Activities</h3>
+                    <p>Users may not engage in fraudulent activities, create multiple accounts, or attempt to manipulate the platform. Violations may result in account suspension or termination.</p>
+                    
+                    <h3>5. Limitation of Liability</h3>
+                    <p>Questa shall not be liable for any indirect, incidental, special, consequential, or punitive damages resulting from your use of the service.</p>
+                    
+                    <h3>6. Governing Law</h3>
+                    <p>These terms shall be governed by and construed in accordance with applicable laws. Any disputes shall be resolved through binding arbitration.</p>
+                </div>
+            `;
+            
+            // Privacy Policy modal content
+            const privacyContent = `
+                <div class="modal-scrollable">
+                    <p><strong>Disclaimer:</strong> This is a general draft. Consult a legal professional for compliance.</p>
+                    
+                    <h3>1. Data Collection</h3>
+                    <p>We collect information you provide directly to us, such as when you create an account, including your email address, password, and profile information.</p>
+                    
+                    <h3>2. Data Usage</h3>
+                    <p>We use your information to provide, maintain, and improve our services, process transactions, and communicate with you about your account and our services.</p>
+                    
+                    <h3>3. Third-Party Services</h3>
+                    <p>We may use third-party services for authentication, analytics, and payment processing. These services have their own privacy policies governing the use of your information.</p>
+                    
+                    <h3>4. User Rights</h3>
+                    <p>You have the right to access, update, or delete your personal information. You may also opt out of certain communications from us.</p>
+                    
+                    <h3>5. Cookies</h3>
+                    <p>We use cookies and similar technologies to enhance your experience, analyze usage patterns, and provide personalized content.</p>
+                    
+                    <h3>6. Contact Information</h3>
+                    <p>For questions about this Privacy Policy, please contact us through our support channels.</p>
+                </div>
+            `;
+            
+            // Terms & Conditions link
+            const termsLink = document.getElementById('terms-link');
+            if (termsLink) {
+                termsLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openModal({
+                        title: 'Terms & Conditions',
+                        content: termsContent,
+                        primaryButton: {
+                            text: 'Close',
+                            action: () => closeModal()
+                        }
+                    });
+                });
+            }
+            
+            // Privacy Policy link
+            const privacyLink = document.getElementById('privacy-link');
+            if (privacyLink) {
+                privacyLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    openModal({
+                        title: 'Privacy Policy',
+                        content: privacyContent,
+                        primaryButton: {
+                            text: 'Close',
+                            action: () => closeModal()
+                        }
+                    });
+                });
+            }
+            
+            // Form validation for terms checkbox - disable submit button until checked
+            const termsCheckbox = document.getElementById('terms-checkbox');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            // Disable submit button initially
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.6';
+            submitBtn.style.cursor = 'not-allowed';
+            
+            // Enable/disable submit button based on checkbox
+            termsCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                } else {
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.6';
+                    submitBtn.style.cursor = 'not-allowed';
+                }
+            });
+        });
+    </script>
 </body>
 </html>

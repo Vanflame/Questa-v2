@@ -1,6 +1,9 @@
 /* Questa - Main Stylesheet */
 /* This file imports all modular CSS files in the correct order */
 
+/* Design System Variables */
+@import url('./variables.css');
+
 /* Base styles - Reset, Typography, Color Variables */
 @import url('./base.css');
 
@@ -10,6 +13,9 @@
 /* Component styles - Buttons, Cards, Modals, Forms */
 @import url('./components.css');
 
+/* UI Modal Component */
+@import url('./ui-modal.css');
+
 /* Dashboard-specific styles */
 @import url('./dashboard.css');
 
@@ -18,3 +24,6 @@
 
 /* Authentication pages styles */
 @import url('./auth.css');
+
+/* Landing page styles */
+@import url('./landing.css');

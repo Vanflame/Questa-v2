@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Questa - Earn Money by Completing Tasks</title>
+    <meta name="description" content="Join Questa and start earning money by completing simple tasks. Sign up today and begin your earning journey!">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="landing-header">
+            <div class="container">
+                <div class="landing-nav">
+                    <div class="landing-brand">
+                        <a href="/" class="brand-link">
+                            <img src="/logo.svg" alt="Questa" class="brand-icon" width="48" height="48">
+                            <span class="brand-text">Questa</span>
+                        </a>
+                    </div>
+                    <div class="landing-nav-actions">
+                        <a href="/login" class="btn btn-secondary">Sign In</a>
+                        <a href="/register" class="btn btn-primary">Get Started</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-container">
+                <div class="hero-content">
+                    <h1 class="hero-title">
+                        Turn Your Time Into
+                        <span class="hero-highlight">Real Money</span>
+                    </h1>
+                    <p class="hero-description">
+                        Complete simple digital tasks and earn rewards instantly. 
+                        Build your wallet balance with verified tasks and withdraw when ready.
+                    </p>
+                    <div class="hero-actions">
+                        <a href="/register" class="btn btn-primary btn-lg">Start Earning Now</a>
+                        <a href="/login" class="btn btn-outline btn-lg">Sign In</a>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="total-users">0</div>
+                            <div class="stat-label">Active Users</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="total-earnings">₱0</div>
+                            <div class="stat-label">Total Earned</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="total-tasks">0</div>
+                            <div class="stat-label">Tasks Completed</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hero-visual">
+                    <div class="hero-card">
+                        <div class="hero-card-header">
+                            <div class="hero-card-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </div>
+                            <div class="hero-card-info">
+                                <div class="hero-card-title">Available Tasks</div>
+                                <div class="hero-card-subtitle">Complete and earn rewards</div>
+                            </div>
+                        </div>
+                        <div class="hero-card-content">
+                            <div class="task-item">
+                                <div class="task-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="task-info">
+                                    <div class="task-name">Social Media Engagement</div>
+                                    <div class="task-reward">₱25.00</div>
+                                </div>
+                            </div>
+                            <div class="task-item">
+                                <div class="task-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M14 2H6C4.89543 2 4 2.89543 4 4V20C4 21.1046 4.89543 22 6 22H18C19.1046 22 20 21.1046 20 20V8L14 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M14 2V8H20" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M16 13H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M16 17H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="task-info">
+                                    <div class="task-name">Content Creation</div>
+                                    <div class="task-reward">₱50.00</div>
+                                </div>
+                            </div>
+                            <div class="task-item">
+                                <div class="task-icon">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M9 19C9 20.1046 9.89543 21 11 21H13C14.1046 21 15 20.1046 15 19V18H9V19Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 1V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M21 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M5 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M18.36 5.64L16.95 7.05" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M5.64 5.64L7.05 7.05" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M18.36 18.36L16.95 16.95" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M5.64 18.36L7.05 16.95" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 7C9.79086 7 8 8.79086 8 11V18H16V11C16 8.79086 14.2091 7 12 7Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="task-info">
+                                    <div class="task-name">Data Entry</div>
+                                    <div class="task-reward">₱15.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features">
+            <div class="container">
+                <div class="features-header">
+                    <h2 class="features-title">Why Choose Questa?</h2>
+                    <p class="features-description">
+                        A professional platform designed for digital workers to earn money through verified tasks
+                    </p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 1L3 5V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V5L12 1Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Verified Tasks</h3>
+                        <p class="feature-description">
+                            All tasks are verified and legitimate, ensuring you get paid for your work
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Instant Payments</h3>
+                        <p class="feature-description">
+                            Get paid immediately after completing tasks with our secure payment system
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M22 12H18L15 21L9 3L6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Flexible Schedule</h3>
+                        <p class="feature-description">
+                            Work on your own time with tasks available 24/7 to fit your schedule
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Easy Withdrawal</h3>
+                        <p class="feature-description">
+                            Withdraw your earnings anytime with our simple and secure withdrawal process
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M17 21V19C17 17.9391 16.5786 16.9217 15.8284 16.1716C15.0783 15.4214 14.0609 15 13 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 11C11.2091 11 13 9.20914 13 7C13 4.79086 11.2091 3 9 3C6.79086 3 5 4.79086 5 7C5 9.20914 6.79086 11 9 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M23 21V19C22.9993 18.1137 22.7044 17.2528 22.1614 16.5523C21.6184 15.8519 20.8581 15.3516 20 15.13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M16 3.13C16.8604 3.35031 17.623 3.85071 18.1676 4.55232C18.7122 5.25392 19.0078 6.11683 19.0078 7.005C19.0078 7.89317 18.7122 8.75608 18.1676 9.45768C17.623 10.1593 16.8604 10.6597 16 10.88" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Community Support</h3>
+                        <p class="feature-description">
+                            Join our community of verified workers and get support when you need it
+                        </p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 22S8 18 8 12V5L12 3L16 5V12C16 18 12 22 12 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                        <h3 class="feature-title">Secure Platform</h3>
+                        <p class="feature-description">
+                            Your data and earnings are protected with enterprise-grade security
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section class="how-it-works">
+            <div class="container">
+                <div class="how-it-works-header">
+                    <h2 class="how-it-works-title">How It Works</h2>
+                    <p class="how-it-works-description">
+                        Start earning in just three simple steps
+                    </p>
+                </div>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Sign Up</h3>
+                            <p class="step-description">
+                                Create your account and verify your identity to get started
+                            </p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Complete Tasks</h3>
+                            <p class="step-description">
+                                Browse available tasks and complete them to earn rewards
+                            </p>
+                        </div>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h3 class="step-title">Get Paid</h3>
+                            <p class="step-description">
+                                Withdraw your earnings directly to your preferred payment method
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CTA Section -->
+        <section class="cta">
+            <div class="container">
+                <div class="cta-content">
+                    <h2 class="cta-title">Ready to Start Earning?</h2>
+                    <p class="cta-description">
+                        Join thousands of users who are already earning money with Questa. 
+                        Start your journey today!
+                    </p>
+                    <div class="cta-actions">
+                        <a href="/register" class="btn btn-primary btn-lg">Get Started Free</a>
+                        <a href="/login" class="btn btn-outline btn-lg">Sign In</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-brand">
+                        <div class="footer-logo">
+                            <img src="/logo.svg" alt="Questa" width="40" height="40">
+                            <h3 class="footer-title">Questa</h3>
+                        </div>
+                        <p class="footer-description">
+                            The easiest way to earn money by completing simple tasks online.
+                        </p>
+                    </div>
+                    <div class="footer-links">
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Platform</h4>
+                            <ul class="footer-list">
+                                <li><a href="/dashboard" class="footer-link">Dashboard</a></li>
+                                <li><a href="/login" class="footer-link">Sign In</a></li>
+                                <li><a href="/register" class="footer-link">Sign Up</a></li>
+                            </ul>
+                        </div>
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Support</h4>
+                            <ul class="footer-list">
+                                <li><a href="#" class="footer-link">Help Center</a></li>
+                                <li><a href="#" class="footer-link">Contact Us</a></li>
+                                <li><a href="#" class="footer-link">Privacy Policy</a></li>
+                            </ul>
+                        </div>
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Company</h4>
+                            <ul class="footer-list">
+                                <li><a href="#" class="footer-link">About Us</a></li>
+                                <li><a href="#" class="footer-link">Terms of Service</a></li>
+                                <li><a href="#" class="footer-link">Careers</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p class="footer-copyright">
+                        © 2024 Questa. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/assets/js/landing-stats.js"></script>
+</body>
+</html>

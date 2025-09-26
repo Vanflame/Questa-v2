@@ -6,20 +6,54 @@
     <title>Dashboard - Questa</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="stylesheet" href="/assets/css/ui-modal.css">
+    <link rel="stylesheet" href="/assets/css/task-details.css">
+    <link rel="stylesheet" href="/assets/css/activity-modern.css">
+    <link rel="stylesheet" href="/assets/css/disabled-account.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <div id="app">
-        <!-- Navigation Bar -->
+        <!-- Mobile-First Navigation -->
         <nav class="navbar">
             <div class="nav-container">
-                <h2 class="nav-brand">Questa</h2>
-                <div class="nav-links">
-                    <a href="/dashboard" class="nav-link active">Dashboard</a>
-                    <a href="/admin" class="nav-link">Admin</a>
+                    <!-- Brand (Left Side) -->
+                    <div class="nav-brand">
+                        <a href="/dashboard" class="brand-link">
+                            <!-- Logo (SVG) - Always visible -->
+                            <img src="/logo.svg" alt="Questa" class="brand-icon logo-image" width="48" height="48">
+                            <!-- Desktop Text (Hidden on Mobile) -->
+                            <span class="brand-text desktop-brand-text">Questa</span>
+                        </a>
+                    </div>
+                    
+                    <!-- Wallet Preview (Center) -->
+                    <div class="wallet-preview">
+                        <div class="wallet-preview-balance">
+                            <span class="wallet-preview-label">Balance</span>
+                            <span class="wallet-preview-amount" id="wallet-preview-amount">₱0.00</span>
+                        </div>
+                        <button class="wallet-preview-withdraw" onclick="switchSection('wallet')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <!-- Right Side Actions -->
+                    <div class="nav-actions">
+                        <!-- Notifications -->
                     <div class="notification-container">
-                        <button id="notification-bell" class="notification-bell">
-                            🔔
+                            <button id="notification-bell" class="notification-bell" aria-label="Notifications">
+                                <svg class="notification-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
                             <span id="notification-count" class="notification-count" style="display: none;">0</span>
                         </button>
                         <div id="notification-dropdown" class="notification-dropdown" style="display: none;">
@@ -32,57 +66,505 @@
                             </div>
                         </div>
                     </div>
-                    <button id="logout-btn" class="nav-link logout-btn">Logout</button>
+                        
+                        <!-- Mobile Menu Button -->
+                        <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Toggle menu">
+                            <span class="hamburger-line"></span>
+                            <span class="hamburger-line"></span>
+                            <span class="hamburger-line"></span>
+                        </button>
+                    </div>
+                
+            </div>
+            
+            <!-- Mobile Menu Overlay -->
+            <div id="mobile-menu-overlay" class="mobile-menu-overlay"></div>
+            
+                <!-- Mobile Menu -->
+                <div id="mobile-menu" class="mobile-menu">
+                    <div class="mobile-menu-header">
+                        <div class="mobile-menu-close">
+                            <button id="mobile-menu-close-btn" class="mobile-menu-close-btn" aria-label="Close menu">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="mobile-user-info">
+                            <div class="mobile-user-details">
+                                <div class="mobile-user-name" id="mobile-user-name">Loading...</div>
+                                <div class="mobile-user-username" id="mobile-user-username">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Wallet Preview Card -->
+                    <div class="mobile-wallet-preview">
+                        <div class="mobile-wallet-info">
+                            <div class="mobile-wallet-label">Wallet Balance</div>
+                            <div class="mobile-wallet-amount" id="mobile-wallet-amount">₱0.00</div>
+                        </div>
+                        <button class="mobile-wallet-withdraw" onclick="switchSection('wallet')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="mobile-menu-content">
+                        <button class="mobile-menu-item" onclick="switchSection('profile')">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Profile
+                        </button>
+                        <button class="mobile-menu-item" onclick="switchSection('tasks')">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Tasks
+                        </button>
+                        <button class="mobile-menu-item" onclick="switchSection('wallet')">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6z" stroke="currentColor" stroke-width="2"/>
+                                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            Wallet
+                        </button>
+                        <button class="mobile-menu-item" onclick="switchSection('activity')">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 3v18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Activity
+                        </button>
+                        <button class="mobile-menu-item" onclick="switchSection('overview')">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Overview
+                        </button>
+                        <button id="mobile-logout-btn" class="mobile-menu-item logout-item">
+                            <svg class="mobile-menu-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <polyline points="16,17 21,12 16,7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Logout
+                        </button>
                 </div>
             </div>
         </nav>
         
+        <!-- Main Content -->
+        <main class="main-content">
         <div class="container">
+                <!-- Dashboard Header -->
             <div class="dashboard-header">
-                <h1>Dashboard</h1>
-                <button id="refresh-btn" class="btn btn-secondary">🔄 Refresh</button>
-            </div>
-            <div id="wallet"></div>
-            <div id="withdraw-section">
-                <h2>Withdraw Funds</h2>
-                <button id="withdraw-btn" class="btn btn-primary">Withdraw</button>
-                <div id="withdraw-form" class="withdraw-form" style="display: none;">
-                    <form id="withdrawal-form">
-                        <div class="form-group">
-                            <label for="withdraw-amount">Amount (₱)</label>
-                            <input type="number" id="withdraw-amount" name="amount" min="1" step="0.01" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="withdraw-method">Payment Method</label>
-                            <select id="withdraw-method" name="method" required>
-                                <option value="">Select method</option>
-                                <option value="gcash">GCash</option>
-                                <option value="paypal">PayPal</option>
-                                <option value="bank">Bank Transfer</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="withdraw-account">Account Information</label>
-                            <input type="text" id="withdraw-account" name="account_info" placeholder="Account number, email, or details" required>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="btn btn-success">Submit Withdrawal</button>
-                            <button type="button" id="cancel-withdraw" class="btn btn-secondary">Cancel</button>
-                        </div>
-                    </form>
+                    <div class="dashboard-title-section">
+                        <h1 class="dashboard-title">Welcome back!</h1>
+                        <p class="dashboard-subtitle">Manage your tasks and earnings</p>
+                    </div>
+                    <button id="refresh-btn" class="btn btn-secondary refresh-btn">
+                        <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M23 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Refresh
+                    </button>
                 </div>
+
+
+                <!-- Dashboard Sections -->
+                <div class="dashboard-sections">
+                    <!-- Overview Section -->
+                    <div class="dashboard-section" id="overview-section">
+                        <!-- Stats Overview -->
+                        <div class="stats-overview">
+                            <div class="stat-card wallet-card">
+                                <div class="stat-header">
+                                    <div class="stat-icon wallet-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6z" stroke="currentColor" stroke-width="2"/>
+                                            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                                        </svg>
+                                    </div>
+                                    <div class="stat-actions">
+                                        <button class="btn btn-sm btn-primary" onclick="switchSection('wallet')">
+                                            <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 1v22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            Manage
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Wallet Balance</div>
+                                    <div class="stat-value" id="wallet-balance">₱0.00</div>
+                                    <div class="stat-description">Available for withdrawal</div>
+                                </div>
+                            </div>
+
+                            <div class="stat-card tasks-card">
+                                <div class="stat-header">
+                                    <div class="stat-icon tasks-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="stat-actions">
+                                        <button class="btn btn-sm btn-primary" onclick="switchSection('tasks')">
+                                            <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            View
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Active Tasks</div>
+                                    <div class="stat-value" id="active-tasks-count">0</div>
+                                    <div class="stat-description">Available to complete</div>
+                                </div>
+                            </div>
+
+                            <div class="stat-card earnings-card">
+                                <div class="stat-header">
+                                    <div class="stat-icon earnings-icon">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="stat-actions">
+                                        <button class="btn btn-sm btn-primary" onclick="switchSection('activity')">
+                                            <svg class="btn-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                            View
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="stat-content">
+                                    <div class="stat-label">Total Earnings</div>
+                                    <div class="stat-value" id="total-earnings">₱0.00</div>
+                                    <div class="stat-description">All time earnings</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity Preview -->
+                        <div class="recent-activity-preview">
+                            <h2 class="section-title">Recent Activity</h2>
+                            <div id="recent-activity-list" class="activity-list">
+                                <!-- Recent activity items will be loaded here -->
+                            </div>
+                            <button class="btn btn-secondary" onclick="switchSection('activity')">
+                                View All Activity
+                                <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <polyline points="9,18 15,12 9,6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tasks Section -->
+                    <div class="dashboard-section active" id="tasks-section">
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h2 class="section-title">Available Tasks</h2>
+                                <div class="view-toggle">
+                                    <button class="view-toggle-btn active" data-view="cards" title="Card View">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <rect x="14" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    <button class="view-toggle-btn" data-view="list" title="List View">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <line x1="8" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <line x1="8" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <line x1="8" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <line x1="3" y1="6" x2="3.01" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <line x1="3" y1="12" x2="3.01" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <line x1="3" y1="18" x2="3.01" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="tasks" class="tasks-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Wallet Section -->
+                    <div class="dashboard-section" id="wallet-section">
+                        <div class="section-header">
+                            <h2 class="section-title">Wallet Management</h2>
+                            <div class="section-subtitle">Manage your earnings and withdrawals</div>
+                        </div>
+                        
+                        <!-- Wallet Balance Card -->
+                        <div class="wallet-balance-card">
+                            <div class="wallet-card-header">
+                                <div class="wallet-icon">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M18 12v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div class="wallet-status">
+                                    <span class="status-badge active">Active</span>
+                                </div>
+                            </div>
+                            
+                            <div class="balance-display">
+                                <div class="balance-label">Current Balance</div>
+                                <div class="balance-amount" id="wallet-balance-detailed">₱0.00</div>
+                                <div class="balance-description">Available for withdrawal</div>
+                            </div>
+                            
+                            <div class="wallet-stats">
+                                <div class="stat-item">
+                                    <div class="stat-label">Total Earned</div>
+                                    <div class="stat-value" id="total-earned">₱0.00</div>
+                                </div>
+                                <div class="stat-item">
+                                    <div class="stat-label">Total Withdrawn</div>
+                                    <div class="stat-value" id="total-withdrawn">₱0.00</div>
+                                </div>
+                            </div>
+                            
+                            <div class="balance-actions">
+                                <button class="btn btn-primary" id="withdraw-funds-btn">
+                                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Withdraw Funds
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Transaction History -->
+                        <div class="transaction-history">
+                            <h3 class="subsection-title">Transaction History</h3>
+                            <div id="transaction-list" class="transaction-list">
+                                <!-- Transaction items will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Profile Section -->
+                    <div class="dashboard-section" id="profile-section">
+                        <div class="section-header">
+                            <h2 class="section-title">Profile Settings</h2>
+                            <div class="section-actions">
+                                <button class="btn btn-sm btn-secondary profile-edit-btn" onclick="editProfile()">
+                                    <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Edit Profile
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-content">
+                            <!-- Profile Header -->
+                            <div class="profile-header-card">
+                                <div class="profile-avatar-section">
+                                    <div class="profile-avatar-large">
+                                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </div>
+                                    <div class="profile-basic-info">
+                                        <h2 id="profile-name" class="profile-display-name">Loading...</h2>
+                                        <p id="profile-email" class="profile-email">Loading...</p>
+                                        <div class="profile-status-badge">
+                                            <span class="status-dot"></span>
+                                            <span id="profile-status" class="status-text">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Account Information -->
+                            <div class="profile-section-card">
+                                <h3 class="profile-section-title">Account Information</h3>
+                                <div class="profile-info-grid">
+                                    <div class="profile-info-item">
+                                        <div class="info-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="info-content">
+                                            <span class="info-label">Username</span>
+                                            <span class="info-value" id="profile-username">Loading...</span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-info-item">
+                                        <div class="info-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="info-content">
+                                            <span class="info-label">User ID</span>
+                                            <span class="info-value" id="profile-user-id">Loading...</span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-info-item">
+                                        <div class="info-icon">
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.1 0 2.15.2 3.12.57" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="info-content">
+                                            <span class="info-label">Email Verified</span>
+                                            <span class="info-value" id="profile-email-verified">Loading...</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Account Statistics -->
+                            <div class="profile-section-card">
+                                <h3 class="profile-section-title">Account Statistics</h3>
+                                <div class="profile-stats-grid">
+                                    <div class="profile-stat-card">
+                                        <div class="stat-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M9 11l3 3L22 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="stat-content">
+                                            <div class="stat-value" id="tasks-completed">0</div>
+                                            <div class="stat-label">Tasks Completed</div>
+                                        </div>
+                                    </div>
+                                    <div class="profile-stat-card">
+                                        <div class="stat-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="stat-content">
+                                            <div class="stat-value" id="total-earned">₱0.00</div>
+                                            <div class="stat-label">Total Earned</div>
+                                        </div>
+                                    </div>
+                                    <div class="profile-stat-card">
+                                        <div class="stat-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M21 12c0 1.2-4.03 6-9 6s-9-4.8-9-6c0-1.2 4.03-6 9-6s9 4.8 9 6z" stroke="currentColor" stroke-width="2"/>
+                                                <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+                                            </svg>
+                                        </div>
+                                        <div class="stat-content">
+                                            <div class="stat-value" id="current-balance">₱0.00</div>
+                                            <div class="stat-label">Current Balance</div>
+                                        </div>
+                                    </div>
+                                    <div class="profile-stat-card">
+                                        <div class="stat-icon">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                                <polyline points="9,22 9,12 15,12 15,22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                            </svg>
+                                        </div>
+                                        <div class="stat-content">
+                                            <div class="stat-value" id="member-since">Loading...</div>
+                                            <div class="stat-label">Member Since</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Account Settings -->
+                            <div class="profile-section-card">
+                                <h3 class="profile-section-title">Account Settings</h3>
+                                <div class="settings-list">
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <div class="setting-title">Change Password</div>
+                                            <div class="setting-description">Update your account password</div>
+                                        </div>
+                                        <button class="btn btn-sm btn-secondary" onclick="changePassword()">
+                                            Change
+                                        </button>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <div class="setting-title">Notification Preferences</div>
+                                            <div class="setting-description">Manage your notification settings</div>
+                                        </div>
+                                        <button class="btn btn-sm btn-secondary" onclick="notificationSettings()">
+                                            Settings
+                                        </button>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-info">
+                                            <div class="setting-title">Privacy Settings</div>
+                                            <div class="setting-description">Control your privacy and data</div>
+                                        </div>
+                                        <button class="btn btn-sm btn-secondary" onclick="privacySettings()">
+                                            Manage
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Section -->
+                    <div class="dashboard-section activity-section-modern" id="activity-section">
+                        <div class="activity-container">
+                            <div class="activity-header-modern">
+                                <h2 class="activity-title-modern">Activity History</h2>
+                                <button id="filter-activity-btn" class="activity-filter-btn">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                        <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46 22,3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    Filter
+                                </button>
+                            </div>
+                            <div id="activity-list" class="activity-list-modern">
+                                <!-- Activity items will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Withdrawal Modal will be created dynamically -->
             </div>
-            <div id="withdrawal-history">
-                <h2>Withdrawal History</h2>
-                <div id="withdrawals-table"></div>
-            </div>
-            <div id="tasks"></div>
-        </div>
+        </main>
     </div>
     <script type="module" src="/assets/js/supabase.js"></script>
     <script type="module" src="/assets/js/auth.js"></script>
-    <script type="module" src="/assets/js/tasks.js"></script>
+    <script src="/assets/js/ui-modal.js?v=3"></script>
+    <script src="/assets/js/dashboard-sections.js?v=3"></script>
+    <script src="/assets/js/mobile-menu.js?v=3"></script>
+    <script src="/assets/js/profile-handler.js?v=6"></script>
     <script type="module" src="/assets/js/submissions.js"></script>
+    <script type="module" src="/assets/js/tasks.js?v=8"></script>
     <script type="module" src="/assets/js/wallet.js"></script>
     <script type="module" src="/assets/js/dashboard-handler.js"></script>
 </body>

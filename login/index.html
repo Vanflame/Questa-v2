@@ -6,26 +6,96 @@
     <title>Login - Questa</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="stylesheet" href="/assets/css/ui-modal.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
 </head>
 <body>
     <div id="app">
-        <div class="container">
-            <h1>Login</h1>
-            <form id="login-form">
-                <div class="form-group">
-                    <label for="login-email">Email</label>
-                    <input type="email" id="login-email" name="email" required>
+        <!-- Mobile-First Auth Layout -->
+        <div class="auth-layout">
+            <!-- Brand Header -->
+            <div class="auth-brand">
+                <a href="/" class="brand-link">
+                    <img src="/logo.svg" alt="Questa" class="brand-icon" width="56" height="56">
+                    <span class="brand-text">Questa</span>
+                </a>
+            </div>
+            
+            <!-- Auth Card -->
+            <div class="auth-card">
+                <div class="auth-header">
+                    <h1 class="auth-title">Welcome Back</h1>
+                    <p class="auth-subtitle">Sign in to your Questa account</p>
                 </div>
+                
+                <form id="login-form" class="auth-form" novalidate>
+                    <div class="form-group">
+                        <label for="login-email">Email Address</label>
+                        <input 
+                            type="email" 
+                            id="login-email" 
+                            name="email" 
+                            placeholder="Enter your email address" 
+                            autocomplete="email"
+                            required
+                        >
+                        <div class="error-message" id="email-error"></div>
+                    </div>
+                    
                 <div class="form-group">
                     <label for="login-password">Password</label>
-                    <input type="password" id="login-password" name="password" required>
+                        <div class="password-input-wrapper">
+                            <input 
+                                type="password" 
+                                id="login-password" 
+                                name="password" 
+                                placeholder="Enter your password" 
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button type="button" class="password-toggle" id="toggle-login-password" aria-label="Show password">
+                                <svg class="eye-icon eye-open" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M1 12S5 4 12 4S23 12 23 12S19 20 12 20S1 12 1 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                <svg class="eye-icon eye-closed" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20C5 20 1 12 1 12A18.45 18.45 0 0 1 5.06 5.06L17.94 17.94Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4C19 4 23 12 23 12A18.5 18.5 0 0 1 19.1 19.76L9.9 4.24Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M1 1L23 23" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="error-message" id="password-error"></div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary btn-full" id="submit-btn">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-spinner" style="display: none;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M12 2V6M12 18V22M4.93 4.93L7.76 7.76M16.24 16.24L19.07 19.07M2 12H6M18 12H22M4.93 19.07L7.76 16.24M16.24 7.76L19.07 4.93" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </span>
+                    </button>
+                    
+                    <div class="forgot-password-link">
+                        <a href="#" id="forgot-password-link" class="link">Forgot your password?</a>
+                    </div>
+                </form>
+                
+                <div class="auth-links">
+                    <p>Don't have an account? <a href="/register" class="link">Sign up here</a></p>
                 </div>
-                <button type="submit" class="btn btn-primary">Login</button>
-            </form>
+            </div>
         </div>
     </div>
+    
+    <!-- Scripts -->
     <script type="module" src="/assets/js/supabase.js"></script>
+    <script type="module" src="/assets/js/ui-modal.js"></script>
     <script type="module" src="/assets/js/auth.js"></script>
+    <script type="module" src="/assets/js/auth-login.js"></script>
 </body>
 </html>
