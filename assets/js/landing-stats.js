@@ -18,7 +18,7 @@ function initSupabaseClient() {
 let landingStats = {
     averageReward: null,
     tasksCompleted: null,
-    activeUsers: null,
+    totalUsers: null,
     liveTasks: [],
     loaded: false
 }
@@ -90,12 +90,12 @@ async function loadLandingStats() {
         
         console.log('Submissions query result:', { submissionsData, submissionsError })
         
-        // Load active users count (users with balance > 0)
+        // Load active users count (all users with role = 'user')
         console.log('Fetching users data...')
         const { data: usersData, error: usersError } = await supabaseClient
             .from('profiles')
             .select('id')
-            .gt('balance', 0)
+            .eq('role', 'user')
         
         console.log('Users query result:', { usersData, usersError })
         
@@ -136,18 +136,18 @@ async function loadLandingStats() {
             }
         }
         
-        // Process completed tasks count
+        // Process completed tasks count (add 42 to live data)
         if (!submissionsError && submissionsData) {
-            landingStats.tasksCompleted = submissionsData.length
-            console.log('Tasks completed calculated:', landingStats.tasksCompleted)
+            landingStats.tasksCompleted = submissionsData.length + 42 // Add 42 to live data
+            console.log('Tasks completed calculated (with +42):', landingStats.tasksCompleted)
         } else {
             console.log('No submissions data available:', { submissionsError, submissionsData })
         }
         
-        // Process active users count
+        // Process total users count (all registered users)
         if (!usersError && usersData) {
-            landingStats.activeUsers = usersData.length
-            console.log('Active users calculated:', landingStats.activeUsers)
+            landingStats.totalUsers = usersData.length
+            console.log('Total users calculated:', landingStats.totalUsers)
         } else {
             console.log('No users data available:', { usersError, usersData })
         }
@@ -188,18 +188,18 @@ function renderLandingStats() {
     // Calculate values with fallbacks only if no data was loaded
     const averageReward = landingStats.averageReward !== null ? landingStats.averageReward : 50
     const tasksCompleted = landingStats.tasksCompleted !== null ? landingStats.tasksCompleted : 1250
-    const activeUsers = landingStats.activeUsers !== null ? landingStats.activeUsers : 342
+    const totalUsers = landingStats.totalUsers !== null ? landingStats.totalUsers : 342
     
     // Check if we're using demo data
     const isUsingDemoData = landingStats.averageReward === null || 
                            landingStats.tasksCompleted === null || 
-                           landingStats.activeUsers === null
+                           landingStats.totalUsers === null
     
     // Calculate total earnings (approximate)
     const totalEarnings = tasksCompleted * averageReward
     
     // Animate numbers
-    animateNumber(totalUsersElement, activeUsers, 0, 1000)
+    animateNumber(totalUsersElement, totalUsers, 0, 1000)
     animateNumber(totalEarningsElement, totalEarnings, 0, 2000, '₱')
     animateNumber(totalTasksElement, tasksCompleted, 0, 1500)
     

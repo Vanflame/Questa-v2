@@ -1,0 +1,401 @@
+# Questa Project Documentation
+
+## Table of Contents
+1. [Project Overview](#project-overview)
+2. [File Structure](#file-structure)
+3. [Database Schema](#database-schema)
+4. [Key Functions](#key-functions)
+5. [UI Components](#ui-components)
+6. [Task Management System](#task-management-system)
+7. [Missing Parts & Placeholders](#missing-parts--placeholders)
+8. [Technical Architecture](#technical-architecture)
+
+## Project Overview
+
+Questa is a task management platform that allows users to earn money by completing various tasks. The platform features a user dashboard for task completion, an admin panel for task management, and a comprehensive authentication system.
+
+**Tech Stack:**
+- Frontend: Vanilla JavaScript, HTML5, CSS3
+- Backend: Supabase (PostgreSQL + Auth + Storage)
+- Styling: Custom CSS with modern design system
+- Icons: Font Awesome (referenced but not implemented)
+
+## File Structure
+
+### HTML Pages
+```
+/
+├── index.html                    # Landing page
+├── login/
+│   └── index.html               # Login page
+├── register/
+│   └── index.html               # Registration page
+├── dashboard/
+│   └── index.html               # User dashboard
+├── admin/
+│   └── index.html               # Admin panel
+├── favicon.ico                  # Site favicon
+└── favicon.svg                  # SVG favicon
+```
+
+### CSS Files
+```
+/assets/css/
+├── styles.css                   # Main stylesheet (imports all others)
+├── variables.css                # CSS custom properties & design tokens
+├── base.css                     # Reset, typography, global styles
+├── layout.css                   # Navigation, containers, grid layouts
+├── components.css               # Buttons, forms, cards, tables
+├── auth.css                     # Login/register page styles
+├── dashboard.css                # Dashboard-specific styles
+├── admin.css                    # Admin panel styles
+├── landing.css                  # Landing page styles
+└── ui-modal.css                 # Modal component styles
+```
+
+### JavaScript Files
+```
+/assets/js/
+├── supabase.js                  # Supabase client configuration
+├── auth.js                      # Authentication module
+├── dashboard-handler.js         # Dashboard UI coordination
+├── admin-handler.js             # Admin panel UI coordination
+├── tasks.js                     # Task management (user side)
+├── submissions.js               # Task submission handling
+├── wallet.js                    # Wallet & withdrawal management
+├── storage.js                   # File upload utilities
+├── ui-modal.js                  # Modal component system
+├── admin-auth.js                # Admin authentication
+├── admin-tasks.js               # Admin task management
+├── admin-submissions.js         # Admin submission review
+├── admin-withdrawals.js         # Admin withdrawal management
+└── admin-users.js               # Admin user management
+```
+
+## Database Schema
+
+Based on the code analysis, the Supabase database contains the following tables:
+
+### Core Tables
+
+#### `profiles`
+- `id` (UUID, Primary Key) - User ID from auth
+- `email` (Text) - User email
+- `role` (Text) - User role ('user' or 'admin')
+- `balance` (Decimal) - User wallet balance
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
+
+#### `tasks`
+- `id` (UUID, Primary Key)
+- `title` (Text) - Task title
+- `description` (Text) - Task description
+- `instruction` (Text) - Detailed instructions
+- `reward_amount` (Decimal) - Reward in PHP
+- `difficulty` (Text) - 'Easy', 'Medium', 'Hard'
+- `category` (Text) - Task category
+- `status` (Text) - 'active', 'inactive'
+- `referral_required` (Boolean) - Whether email is required
+- `email_list` (Text) - Valid emails (JSON array)
+- `task_deadline` (Timestamp) - Task expiration
+- `user_deadline` (Integer) - User time limit in hours
+- `restart_limit` (Integer) - Max restart attempts
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
+
+#### `task_submissions`
+- `id` (UUID, Primary Key)
+- `user_id` (UUID, Foreign Key → profiles.id)
+- `task_id` (UUID, Foreign Key → tasks.id)
+- `status` (Text) - 'in_progress', 'pending_review', 'approved', 'rejected', 'expired'
+- `proof_url` (Text) - URL to uploaded proof
+- `email_used` (Text) - Email used for task completion
+- `user_deadline` (Timestamp) - User's deadline
+- `submitted_at` (Timestamp)
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
+
+#### `withdrawals`
+- `id` (UUID, Primary Key)
+- `user_id` (UUID, Foreign Key → profiles.id)
+- `amount` (Decimal) - Withdrawal amount
+- `method` (Text) - 'gcash', 'paypal', 'bank'
+- `account_info` (Text) - Account details
+- `status` (Text) - 'pending', 'approved', 'rejected'
+- `created_at` (Timestamp)
+- `updated_at` (Timestamp)
+
+#### `notifications`
+- `id` (UUID, Primary Key)
+- `user_id` (UUID, Foreign Key → profiles.id)
+- `title` (Text) - Notification title
+- `message` (Text) - Notification content
+- `is_read` (Boolean) - Read status
+- `created_at` (Timestamp)
+
+### Supporting Tables
+
+#### `user_profiles` (Legacy)
+- `user_id` (UUID, Primary Key)
+- `email` (Text)
+- `is_admin` (Boolean)
+- `is_active` (Boolean)
+
+#### `user_wallets` (Legacy)
+- `user_id` (UUID, Primary Key)
+- `balance` (Decimal)
+
+#### `task_email_usage`
+- `id` (UUID, Primary Key)
+- `submission_id` (UUID, Foreign Key → task_submissions.id)
+- `email` (Text) - Used email
+- `created_at` (Timestamp)
+
+### Storage Buckets
+- `proofs` - User-uploaded proof files
+
+## Key Functions
+
+### Authentication (`auth.js`)
+
+#### Core Functions
+- `signUp(email, password)` - User registration
+- `signIn(email, password)` - User login
+- `signOut()` - User logout
+- `getCurrentUser()` - Get current user
+- `getUserProfile()` - Get user profile
+
+#### Helper Functions
+- `checkAdminStatus(userId)` - Check if user is admin
+- `loadUserProfile(userId)` - Load user profile data
+- `createUserProfile(userId)` - Create new user profile
+- `checkAuthAndRedirect()` - Authentication middleware
+
+### Dashboard Handler (`dashboard-handler.js`)
+
+#### Main Functions
+- `refreshDashboardData()` - Load all dashboard data
+- `renderDashboard()` - Render complete dashboard
+- `attachEventListeners()` - Attach UI event handlers
+
+#### Event Handlers
+- Refresh button functionality
+- Withdrawal form handling
+- Notification system
+- Modal integration
+
+### Admin Handler (`admin-handler.js`)
+
+#### Main Functions
+- `renderAdminPanel()` - Render admin interface
+- `attachEventListeners()` - Admin event handlers
+
+#### Admin Modules Integration
+- Task management
+- Submission review
+- Withdrawal management
+- User management
+
+### Task Management (`tasks.js`)
+
+#### Core Functions
+- `loadTasks()` - Load available tasks
+- `renderTasks()` - Render task cards
+- `startTask(taskId)` - Start a task
+- `submitProof(submissionId)` - Submit task proof
+- `restartTask(taskId)` - Restart a task
+
+#### Helper Functions
+- `checkExpiredSubmissions()` - Check for expired tasks
+- `getCurrentUserId()` - Get current user ID
+- `formatTimeRemaining(deadline)` - Format countdown timer
+
+### Wallet System (`wallet.js`)
+
+#### Core Functions
+- `loadWallet()` - Load wallet balance
+- `loadWithdrawals()` - Load withdrawal history
+- `loadNotifications()` - Load user notifications
+- `submitWithdrawal(amount, method, accountInfo)` - Submit withdrawal request
+
+#### Helper Functions
+- `renderWallet()` - Render wallet display
+- `renderWithdrawals()` - Render withdrawal history
+- `renderNotifications()` - Render notifications
+- `createNotification(userId, title, message)` - Create notification
+
+### Admin Modules
+
+#### Admin Tasks (`admin-tasks.js`)
+- `loadTasks()` - Load all tasks
+- `renderTasks()` - Render task management table
+- `createTask(taskData)` - Create new task
+- `toggleTaskStatus(taskId)` - Activate/deactivate task
+- `editTask(taskId, taskData)` - Edit existing task
+- `deleteTask(taskId)` - Delete task
+
+#### Admin Submissions (`admin-submissions.js`)
+- `loadSubmissions()` - Load pending submissions
+- `renderSubmissions()` - Render submission review interface
+- `approveSubmission(submissionId)` - Approve submission
+- `rejectSubmission(submissionId, reason)` - Reject submission
+
+#### Admin Withdrawals (`admin-withdrawals.js`)
+- `loadWithdrawals()` - Load withdrawal requests
+- `renderWithdrawals()` - Render withdrawal management
+- `approveWithdrawal(withdrawalId)` - Approve withdrawal
+- `rejectWithdrawal(withdrawalId, reason)` - Reject withdrawal
+
+## UI Components
+
+### Modal System (`ui-modal.js`)
+- `openModal(options)` - Open modal with configuration
+- `closeModal()` - Close current modal
+- **Features**: Title, content, primary/secondary buttons, ESC key support, overlay click
+
+### Loading System
+- `showLoading()` - Show loading spinner
+- `hideLoading()` - Hide loading spinner
+- **Location**: `auth.js`
+
+### Form Components
+- **Login Form**: Email/password authentication
+- **Registration Form**: User signup
+- **Task Creation Form**: Admin task creation
+- **Withdrawal Form**: User withdrawal requests
+- **Submission Form**: Task proof submission
+
+### Navigation Components
+- **Main Navigation**: Brand, links, notifications, logout
+- **Notification Bell**: Dropdown with notifications
+- **Admin Navigation**: Admin-specific navigation
+
+### Card Components
+- **Task Cards**: Task display with status indicators
+- **Submission Cards**: Admin submission review
+- **Stats Cards**: Dashboard statistics
+- **Notification Cards**: User notifications
+
+## Task Management System
+
+### Task Lifecycle
+1. **Task Creation** (Admin)
+   - Set title, description, instructions
+   - Configure reward amount, difficulty, category
+   - Set deadlines and restart limits
+   - Configure email requirements
+
+2. **Task Discovery** (User)
+   - Browse available tasks
+   - View task details and requirements
+   - Check email requirements
+
+3. **Task Execution** (User)
+   - Start task (creates submission record)
+   - Upload proof when complete
+   - Timer countdown for user deadline
+
+4. **Task Review** (Admin)
+   - Review submitted proofs
+   - Approve or reject submissions
+   - Provide feedback for rejections
+
+5. **Task Completion** (System)
+   - Update user balance on approval
+   - Create notifications
+   - Update task statistics
+
+### Task Features
+- **Email Validation**: Required emails for certain tasks
+- **Timer System**: User deadline countdown
+- **Restart System**: Limited restart attempts
+- **Proof Upload**: File upload to Supabase Storage
+- **Status Tracking**: Real-time status updates
+
+### Withdrawal System
+- **Request Submission**: Users submit withdrawal requests
+- **Admin Review**: Admins approve/reject withdrawals
+- **Multiple Methods**: GCash, PayPal, Bank Transfer
+- **Status Tracking**: Pending, approved, rejected
+
+## Missing Parts & Placeholders
+
+### Incomplete Features
+1. **Email Validation System**
+   - Email list validation not fully implemented
+   - Email usage tracking needs refinement
+
+2. **File Upload System**
+   - Basic upload implemented but error handling incomplete
+   - File type validation missing
+
+3. **Notification System**
+   - Basic notifications work but no real-time updates
+   - No push notifications
+
+4. **Admin User Management**
+   - User role management partially implemented
+   - User statistics incomplete
+
+### Placeholder Functions
+1. **Error Handling**
+   - Many functions have basic error handling
+   - User-friendly error messages missing
+
+2. **Data Validation**
+   - Form validation is basic
+   - Server-side validation incomplete
+
+3. **Security Features**
+   - Rate limiting not implemented
+   - Input sanitization basic
+
+### Missing Components
+1. **Toast Notifications**
+   - Referenced in code but not implemented
+   - Success/error feedback system incomplete
+
+2. **Loading States**
+   - Basic loading spinner exists
+   - Component-specific loading states missing
+
+3. **Responsive Design**
+   - Mobile responsiveness partially implemented
+   - Tablet breakpoints need refinement
+
+## Technical Architecture
+
+### Frontend Architecture
+- **Modular JavaScript**: Each feature in separate modules
+- **Global State**: User data and authentication state
+- **Event-Driven**: DOM event listeners for user interactions
+- **Component-Based**: Reusable UI components
+
+### Backend Integration
+- **Supabase Client**: Centralized database access
+- **Real-time Updates**: Basic real-time functionality
+- **File Storage**: Supabase Storage for proof uploads
+- **Authentication**: Supabase Auth integration
+
+### Data Flow
+1. **User Actions** → Event Handlers
+2. **Event Handlers** → API Calls
+3. **API Calls** → Supabase Database
+4. **Database Updates** → UI Re-rendering
+5. **UI Updates** → User Feedback
+
+### Security Considerations
+- **Authentication**: Supabase Auth with JWT tokens
+- **Authorization**: Role-based access control
+- **Data Validation**: Client-side validation (needs server-side)
+- **File Uploads**: Basic file type checking
+
+### Performance Optimizations
+- **Lazy Loading**: Modules loaded on demand
+- **Caching**: Basic data caching in global variables
+- **Debouncing**: Some user input debouncing
+- **Efficient Queries**: Optimized Supabase queries
+
+---
+
+This documentation provides a comprehensive overview of the Questa project structure, functionality, and current implementation status. The project is well-structured with clear separation of concerns and modular architecture, though some features remain incomplete or need refinement.

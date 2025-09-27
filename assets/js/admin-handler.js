@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Setup balance management
     setupBalanceManagement()
     
+    // Setup mobile menu
+    setupMobileMenu()
+    
     // Render all the data
     if (typeof window.renderDashboardStats === 'function') {
         window.renderDashboardStats()
@@ -111,6 +114,53 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     console.log('Admin panel fully initialized')
 })
+
+// Setup mobile menu functionality
+function setupMobileMenu() {
+    const mobileMenuToggle = document.getElementById('mobile-menu-toggle')
+    const sidebar = document.getElementById('admin-sidebar')
+    const overlay = document.getElementById('admin-mobile-overlay')
+    
+    if (!mobileMenuToggle || !sidebar || !overlay) {
+        console.log('Mobile menu elements not found')
+        return
+    }
+    
+    // Toggle sidebar
+    mobileMenuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open')
+        overlay.classList.toggle('active')
+        document.body.classList.toggle('sidebar-open')
+    })
+    
+    // Close sidebar when clicking overlay
+    overlay.addEventListener('click', () => {
+        sidebar.classList.remove('open')
+        overlay.classList.remove('active')
+        document.body.classList.remove('sidebar-open')
+    })
+    
+    // Close sidebar when clicking nav items
+    const navItems = document.querySelectorAll('.admin-nav-item')
+    navItems.forEach(item => {
+        item.addEventListener('click', () => {
+            sidebar.classList.remove('open')
+            overlay.classList.remove('active')
+            document.body.classList.remove('sidebar-open')
+        })
+    })
+    
+    // Close sidebar on window resize if screen becomes large
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 1024) {
+            sidebar.classList.remove('open')
+            overlay.classList.remove('active')
+            document.body.classList.remove('sidebar-open')
+        }
+    })
+    
+    console.log('Mobile menu setup complete')
+}
 
 // Initialize admin UI components
 function initializeAdminUI() {
