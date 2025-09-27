@@ -127,6 +127,9 @@ async function loadWithdrawals() {
         await renderWithdrawals()
         console.log('renderWithdrawals completed')
         
+        // Also re-render wallet to update total withdrawn
+        renderWallet()
+        
     } catch (error) {
         console.error('Error loading withdrawals:', error)
         // Don't show alert for network errors, just log them
@@ -200,8 +203,10 @@ function renderWallet() {
     }
     
     if (totalWithdrawnElement) {
-        totalWithdrawnElement.textContent = `₱0.00`; // This would be calculated from withdrawal history
-        console.log('Updated total-withdrawn to ₱0.00');
+        // Calculate total withdrawn from approved withdrawals
+        const totalWithdrawn = calculateTotalWithdrawn();
+        totalWithdrawnElement.textContent = `₱${totalWithdrawn.toFixed(2)}`;
+        console.log('Updated total-withdrawn to', `₱${totalWithdrawn.toFixed(2)}`);
     }
     
     // Also update the wallet container if it exists (for backward compatibility)
@@ -325,7 +330,8 @@ async function renderWithdrawals() {
                                 description: transaction.description || 'Transaction',
                                 date: transaction.created_at,
                                 status: 'completed',
-                                receipt_url: receiptUrl
+                                receipt_url: receiptUrl,
+                                reference: transaction.reference
                             }
                         })
                     }
@@ -416,7 +422,7 @@ async function renderWithdrawals() {
                                     </div>
                                     <div class="transaction-details">
                                         <div class="transaction-description">${transaction.description}</div>
-                                        <div class="transaction-reference">Reference: ${String(transaction.id).slice(0, 8)}</div>
+                                        <div class="transaction-reference">Reference: ${transaction.reference || String(transaction.id).slice(0, 8)}</div>
                                         <div class="transaction-time">${formatTransactionTime(transaction.date)}</div>
                                         ${transaction.receipt_url ? `
                                             <div class="transaction-receipt">
@@ -745,6 +751,9 @@ async function submitWithdrawal(amount, method, accountName, accountInfo) {
         // Set spam protection
         localStorage.setItem(lastWithdrawalKey, now.toString())
         
+        // Generate unique withdrawal reference
+        const withdrawalReference = generateWithdrawalReference()
+        
         // Insert withdrawal request
         const { data: withdrawalData, error: withdrawalError } = await supabaseClient
             .from('withdrawals')
@@ -755,6 +764,7 @@ async function submitWithdrawal(amount, method, accountName, accountInfo) {
                 account_name: accountName.trim(),
                 account_info: accountInfo.trim(),
                 status: 'pending',
+                reference: withdrawalReference,
                 created_at: new Date().toISOString()
             })
             .select()
@@ -814,10 +824,11 @@ async function submitWithdrawal(amount, method, accountName, accountInfo) {
             .from('transactions')
             .insert({
                 user_id: userId,
-                amount: withdrawalAmount,
+                amount: -withdrawalAmount, // Negative amount for withdrawal
                 type: 'withdrawal',
-                description: `Withdrawal request: ${method} - ${accountInfo}`,
+                description: `Withdrawal request: ₱${withdrawalAmount} via ${method} - ${accountInfo}`,
                 withdrawal_id: withdrawalData.id,
+                reference: withdrawalReference,
                 created_at: new Date().toISOString()
             })
         
@@ -845,8 +856,8 @@ async function submitWithdrawal(amount, method, accountName, accountInfo) {
         // Reload wallet and withdrawals
         await loadWallet()
         await loadWithdrawals()
-        renderWallet()
-        await renderWithdrawals()
+        // renderWallet() is already called in loadWithdrawals()
+        // await renderWithdrawals() is already called in loadWithdrawals()
         
         return true
         
@@ -968,6 +979,7 @@ async function handleWithdrawalRejection(withdrawalId, reason) {
                 amount: refundAmount,
                 type: 'refund',
                 description: `Withdrawal refund: ${withdrawal.method} - ${reason || 'Withdrawal rejected'}`,
+                reference: withdrawal.reference,
                 created_at: new Date().toISOString()
             })
         
@@ -1119,6 +1131,29 @@ function getCurrentUserId() {
         return null
     }
     return user.id
+}
+
+// Generate withdrawal reference
+function generateWithdrawalReference() {
+    const now = new Date()
+    const timestamp = now.getTime().toString(36) // Base36 timestamp
+    const random = Math.random().toString(36).substring(2, 6) // 4 random chars
+    return `WD-${timestamp}-${random}`.toUpperCase()
+}
+
+// Calculate total withdrawn amount from approved withdrawals
+function calculateTotalWithdrawn() {
+    if (!withdrawals || withdrawals.length === 0) {
+        return 0
+    }
+    
+    // Sum up all approved withdrawals
+    const totalWithdrawn = withdrawals
+        .filter(withdrawal => withdrawal.status === 'approved')
+        .reduce((sum, withdrawal) => sum + (parseFloat(withdrawal.amount) || 0), 0)
+    
+    console.log('Calculated total withdrawn:', totalWithdrawn, 'from', withdrawals.length, 'withdrawals')
+    return totalWithdrawn
 }
 
 // View receipt in full size
@@ -1318,8 +1353,20 @@ async function showTransactionDetails(transactionId) {
         }
         
         // Format transaction details
-        const transactionType = transaction.type === 'reward' || transaction.type === 'credit' ? 'Earned' : 'Deducted'
-        const amountDisplay = transaction.type === 'reward' || transaction.type === 'credit' ? '+' : '-'
+        let transactionType, amountDisplay
+        if (transaction.type === 'reward' || transaction.type === 'credit') {
+            transactionType = 'Earned'
+            amountDisplay = '+'
+        } else if (transaction.type === 'refund') {
+            transactionType = 'Refund'
+            amountDisplay = '+'
+        } else if (transaction.type === 'withdrawal') {
+            transactionType = 'Withdrawal'
+            amountDisplay = '-'
+        } else {
+            transactionType = 'Deducted'
+            amountDisplay = '-'
+        }
         const formattedDate = new Date(transaction.created_at).toLocaleString()
         
         // Get withdrawal status and details
@@ -1388,7 +1435,7 @@ async function showTransactionDetails(transactionId) {
                                     width: 64px;
                                     height: 64px;
                                     border-radius: 50%;
-                                    background: ${transaction.type === 'reward' || transaction.type === 'credit' ? 
+                                    background: ${transaction.type === 'reward' || transaction.type === 'credit' || transaction.type === 'refund' ? 
                                         'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 
                                         'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
                                     display: flex;
@@ -1396,7 +1443,8 @@ async function showTransactionDetails(transactionId) {
                                     justify-content: center;
                                     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
                                 ">
-                                    ${getTransactionIcon(transaction.type === 'reward' || transaction.type === 'credit' ? 'reward' : 'withdrawal')}
+                                    ${getTransactionIcon(transaction.type === 'reward' || transaction.type === 'credit' ? 'reward' : 
+                                        transaction.type === 'refund' ? 'refund' : 'withdrawal')}
                                 </div>
                             </div>
                             <h3 style="
@@ -1408,7 +1456,7 @@ async function showTransactionDetails(transactionId) {
                             <div class="transaction-amount" style="
                                 font-size: 1.5rem;
                                 font-weight: 700;
-                                color: ${transaction.type === 'reward' || transaction.type === 'credit' ? '#10b981' : '#ef4444'};
+                                color: ${transaction.type === 'reward' || transaction.type === 'credit' || transaction.type === 'refund' ? '#10b981' : '#ef4444'};
                                 margin-bottom: 1rem;
                             ">${amountDisplay}₱${Math.abs(transaction.amount).toFixed(2)}</div>
                             ${withdrawalData ? `
@@ -1467,7 +1515,7 @@ async function showTransactionDetails(transactionId) {
                                         text-transform: uppercase;
                                         letter-spacing: 0.05em;
                                         margin-bottom: 0.25rem;
-                                    ">Transaction ID</span>
+                                    ">Reference</span>
                                     <span class="info-value" style="
                                         display: block;
                                         font-size: 0.875rem;
@@ -1475,7 +1523,7 @@ async function showTransactionDetails(transactionId) {
                                         font-weight: 600;
                                         font-family: 'Monaco', 'Menlo', monospace;
                                         word-break: break-all;
-                                    ">${String(transaction.id).slice(0, 8)}...</span>
+                                    ">${transaction.reference || String(transaction.id).slice(0, 8)}</span>
                                 </div>
                                 <div class="info-item">
                                     <span class="info-label" style="

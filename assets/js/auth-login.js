@@ -78,6 +78,11 @@ async function handleSubmit(e) {
     // Show loading state
     setLoadingState(true)
     
+    // Also show unified loading if available
+    if (window.showDashboardLoading) {
+        window.showDashboardLoading('Signing you in...')
+    }
+    
     try {
         console.log('Attempting login for:', email)
         
@@ -99,6 +104,11 @@ async function handleSubmit(e) {
     } finally {
         // Hide loading state
         setLoadingState(false)
+        
+        // Hide unified loading if it was shown
+        if (window.hideDashboardLoading) {
+            window.hideDashboardLoading()
+        }
     }
 }
 

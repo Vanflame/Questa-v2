@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Available admin functions:', Object.keys(window).filter(key => key.includes('Admin')))
     await window.loadDashboardStats()
     await window.loadSubmissions()
-    await window.loadAdminWithdrawals()
+    await window.loadAdminWithdrawals(true) // Pass reset = true for initial load
     
     // Wait for admin-tasks module to load
     let attempts = 0
@@ -348,7 +348,7 @@ async function refreshAdminData() {
         
         // Refresh withdrawals
         if (typeof window.loadAdminWithdrawals === 'function') {
-            await window.loadAdminWithdrawals()
+            await window.loadAdminWithdrawals(true) // Pass reset = true to clear pagination
         }
         
         // Refresh users
@@ -379,7 +379,11 @@ async function refreshAdminData() {
         }
         
         if (typeof window.renderAdminWithdrawals === 'function') {
+            console.log('Calling renderAdminWithdrawals...')
             window.renderAdminWithdrawals()
+            console.log('renderAdminWithdrawals completed')
+        } else {
+            console.error('renderAdminWithdrawals function not available')
         }
         
         if (typeof window.attachWithdrawalEventListeners === 'function') {

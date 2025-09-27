@@ -3,6 +3,18 @@
 
 let currentSection = 'tasks';
 
+// Activity filter state
+let activityFilters = {
+    type: 'all', // all, withdrawal, transaction, submission, user_activity
+    status: 'all', // all, pending, approved, rejected, completed
+    dateRange: 'all', // all, today, week, month, custom
+    customStartDate: '',
+    customEndDate: '',
+    amountRange: 'all', // all, positive, negative, custom
+    customMinAmount: '',
+    customMaxAmount: ''
+};
+
 // Format user ID with Q prefix
 function formatUserId(userId) {
     if (!userId) return 'Q0000';
@@ -27,6 +39,17 @@ function initSectionNavigation() {
             switchSection(targetSection);
         });
     });
+    
+    // Initialize activity filter button
+    initActivityFilter();
+}
+
+// Initialize activity filter functionality
+function initActivityFilter() {
+    const filterBtn = document.querySelector('.activity-filter-btn');
+    if (filterBtn) {
+        filterBtn.addEventListener('click', showActivityFilterModal);
+    }
 }
 
 // Switch between dashboard sections
@@ -98,21 +121,13 @@ async function loadTasksData() {
     if (!tasksContainer) return;
     
     try {
-        // Show loading state
-        tasksContainer.innerHTML = `
-            <div class="loading-state">
-                <div class="loading-spinner">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="60" stroke-dashoffset="60">
-                            <animate attributeName="stroke-dasharray" dur="2s" values="0 60;60 0;0 60" repeatCount="indefinite"/>
-                            <animate attributeName="stroke-dashoffset" dur="2s" values="0;-60;0" repeatCount="indefinite"/>
-                        </circle>
-                    </svg>
-                </div>
-                <h3>Loading Tasks...</h3>
-                <p>Please wait while we fetch your available tasks.</p>
-            </div>
-        `;
+        // Show loading state for tasks
+        if (window.showRefreshIndicator) {
+            window.showRefreshIndicator('Loading tasks...')
+        }
+        
+        // Clear any existing content first
+        tasksContainer.innerHTML = ''
         
         // First load the tasks data
         if (window.loadTasks) {
@@ -171,6 +186,11 @@ async function loadTasksData() {
                 </button>
             </div>
         `;
+    } finally {
+        // Hide loading indicator
+        if (window.hideRefreshIndicator) {
+            window.hideRefreshIndicator()
+        }
     }
 }
 
@@ -1036,8 +1056,8 @@ async function loadRecentActivityPreview() {
             return;
         }
         
-        // Get recent transactions and withdrawals
-        const [transactionsResult, withdrawalsResult] = await Promise.all([
+        // Get recent transactions, withdrawals, task submissions, and user activities
+        const [transactionsResult, withdrawalsResult, submissionsResult, activitiesResult] = await Promise.all([
             supabaseClient
             .from('transactions')
             .select('*')
@@ -1049,27 +1069,68 @@ async function loadRecentActivityPreview() {
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
+                .limit(3),
+            supabaseClient
+                .from('task_submissions')
+                .select(`
+                    *,
+                    tasks:task_id (
+                        title,
+                        reward_amount
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(3),
+            supabaseClient
+                .from('user_activities')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
                 .limit(3)
         ]);
         
         if (transactionsResult.error) throw transactionsResult.error;
         if (withdrawalsResult.error) throw withdrawalsResult.error;
+        if (submissionsResult.error) throw submissionsResult.error;
+        if (activitiesResult.error) throw activitiesResult.error;
         
         const transactions = transactionsResult.data || [];
         const withdrawals = withdrawalsResult.data || [];
+        const submissions = submissionsResult.data || [];
+        const activities = activitiesResult.data || [];
+        
+        // Filter transactions to only include non-withdrawal types for regular transactions
+        const regularTransactions = transactions.filter(t => 
+            t.type !== 'withdrawal' && 
+            t.type !== 'refund' &&
+            !t.description?.toLowerCase().includes('withdrawal') &&
+            !t.description?.toLowerCase().includes('refund')
+        );
+        
+        // Get withdrawal-related transactions (withdrawal and refund types)
+        const withdrawalTransactions = transactions.filter(t => 
+            t.type === 'withdrawal' || t.type === 'refund'
+        );
         
         // Combine and sort recent activities
         const recentActivities = [
-            ...transactions.map(t => ({ ...t, activity_type: 'transaction' })),
-            ...withdrawals.map(w => ({ ...w, activity_type: 'withdrawal' }))
+            ...regularTransactions.map(t => ({ ...t, activity_type: 'transaction' })),
+            ...withdrawalTransactions.map(t => ({ ...t, activity_type: 'withdrawal' })),
+            ...submissions.map(s => ({ ...s, activity_type: 'submission' })),
+            ...activities.map(a => ({ ...a, activity_type: 'user_activity' }))
         ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5);
         
         if (recentActivities.length > 0) {
             recentActivityList.innerHTML = recentActivities.map(activity => {
                 if (activity.activity_type === 'transaction') {
                     return renderTransactionActivity(activity);
-                } else {
+                } else if (activity.activity_type === 'withdrawal') {
                     return renderWithdrawalActivity(activity);
+                } else if (activity.activity_type === 'submission') {
+                    return renderSubmissionActivity(activity);
+                } else if (activity.activity_type === 'user_activity') {
+                    return renderUserActivity(activity);
                 }
             }).join('');
         } else {
@@ -1157,8 +1218,8 @@ async function loadActivityHistory() {
             return;
         }
         
-        // Get transactions and withdrawals data
-        const [transactionsResult, withdrawalsResult] = await Promise.all([
+        // Get transactions, withdrawals, task submissions, and user activities data
+        const [transactionsResult, withdrawalsResult, submissionsResult, activitiesResult] = await Promise.all([
             supabaseClient
             .from('transactions')
             .select('*')
@@ -1170,27 +1231,81 @@ async function loadActivityHistory() {
                 .select('*')
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false })
+                .limit(50),
+            supabaseClient
+                .from('task_submissions')
+                .select(`
+                    *,
+                    tasks:task_id (
+                        title,
+                        reward_amount
+                    )
+                `)
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(50),
+            supabaseClient
+                .from('user_activities')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
                 .limit(50)
         ]);
         
         if (transactionsResult.error) throw transactionsResult.error;
         if (withdrawalsResult.error) throw withdrawalsResult.error;
+        if (submissionsResult.error) throw submissionsResult.error;
+        if (activitiesResult.error) {
+            console.warn('Error fetching user activities (table might not exist yet):', activitiesResult.error);
+            // Don't throw error, just continue without user activities
+        }
         
         const transactions = transactionsResult.data || [];
         const withdrawals = withdrawalsResult.data || [];
+        const submissions = submissionsResult.data || [];
+        const activities = activitiesResult.data || [];
+        
+        console.log('Activity data loaded:', {
+            transactions: transactions.length,
+            withdrawals: withdrawals.length,
+            submissions: submissions.length,
+            activities: activities.length
+        });
+        
+        // Filter transactions to only include non-withdrawal types for regular transactions
+        const regularTransactions = transactions.filter(t => 
+            t.type !== 'withdrawal' && 
+            t.type !== 'refund' &&
+            !t.description?.toLowerCase().includes('withdrawal') &&
+            !t.description?.toLowerCase().includes('refund')
+        );
+        
+        // Get withdrawal-related transactions (withdrawal and refund types)
+        const withdrawalTransactions = transactions.filter(t => 
+            t.type === 'withdrawal' || t.type === 'refund'
+        );
         
         // Combine and sort all activities
         const allActivities = [
-            ...transactions.map(t => ({ ...t, activity_type: 'transaction' })),
-            ...withdrawals.map(w => ({ ...w, activity_type: 'withdrawal' }))
+            ...regularTransactions.map(t => ({ ...t, activity_type: 'transaction' })),
+            ...withdrawalTransactions.map(t => ({ ...t, activity_type: 'withdrawal' })),
+            ...submissions.map(s => ({ ...s, activity_type: 'submission' })),
+            ...activities.map(a => ({ ...a, activity_type: 'user_activity' }))
         ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         
-        if (allActivities.length > 0) {
-            activityList.innerHTML = allActivities.map(activity => {
+        // Apply filters
+        const filteredActivities = filterActivities(allActivities);
+        
+        if (filteredActivities.length > 0) {
+            activityList.innerHTML = filteredActivities.map(activity => {
                 if (activity.activity_type === 'transaction') {
                     return renderTransactionActivity(activity);
-                } else {
+                } else if (activity.activity_type === 'withdrawal') {
                     return renderWithdrawalActivity(activity);
+                } else if (activity.activity_type === 'submission') {
+                    return renderSubmissionActivity(activity);
+                } else if (activity.activity_type === 'user_activity') {
+                    return renderUserActivity(activity);
                 }
             }).join('');
         } else {
@@ -1231,30 +1346,51 @@ async function loadActivityHistory() {
 function renderTransactionActivity(transaction) {
     const isCredit = transaction.type === 'credit' || transaction.type === 'reward';
     const isRefund = transaction.type === 'refund';
+    const isWithdrawal = transaction.type === 'withdrawal';
     
     let iconSvg = '';
     let statusClass = '';
     let statusText = '';
+    let amountClass = '';
+    let amountPrefix = '';
+    let statusDisplay = '';
     
     if (isCredit && !isRefund) {
         // Task Reward - use checkmark icon (same as transaction history)
         iconSvg = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
         statusClass = 'status-approved';
         statusText = 'Task Reward';
+        amountClass = 'positive';
+        amountPrefix = '+';
+        statusDisplay = 'EARNED';
     } else if (isRefund) {
         // Refund - use refresh icon (same as transaction history)
         iconSvg = '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
         statusClass = 'status-processing';
         statusText = 'Refund';
-    } else {
+        amountClass = 'positive';
+        amountPrefix = '+';
+        statusDisplay = 'EARNED';
+    } else if (isWithdrawal) {
         // Withdrawal - use wallet icon (same as transaction history)
         iconSvg = '<path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
         statusClass = 'status-pending';
         statusText = 'Withdrawal';
+        amountClass = 'negative';
+        amountPrefix = '-';
+        statusDisplay = 'DEDUCTED';
+    } else {
+        // Default case for unknown transaction types - use generic icon
+        iconSvg = '<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+        statusClass = 'status-info';
+        statusText = transaction.type ? transaction.type.charAt(0).toUpperCase() + transaction.type.slice(1) : 'Transaction';
+        amountClass = 'neutral';
+        amountPrefix = transaction.amount >= 0 ? '+' : '-';
+        statusDisplay = 'PROCESSING';
     }
     
     return `
-        <div class="activity-item-modern">
+        <div class="activity-item-modern transaction-${transaction.type || 'unknown'}">
             <div class="activity-item-content">
                 <div class="activity-icon-modern ${statusClass}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1262,16 +1398,19 @@ function renderTransactionActivity(transaction) {
                     </svg>
                 </div>
                 <div class="activity-details-modern">
-                    <div class="activity-title-text">${transaction.description}</div>
+                    <div class="activity-title-text">${transaction.description || 'Transaction'}</div>
                     <div class="activity-description-modern">
                         <span class="activity-type-badge">${statusText}</span>
-                        <span class="activity-reference">Ref: ${String(transaction.id).slice(0, 8)}</span>
+                        <span class="activity-reference">Ref: ${transaction.reference || String(transaction.id).slice(0, 8)}</span>
                     </div>
                     <div class="activity-time-modern">${new Date(transaction.created_at).toLocaleString()}</div>
                 </div>
                 <div class="activity-amount-modern">
-                    <div class="activity-amount-value ${isCredit ? 'positive' : 'negative'}">
-                        ${isCredit ? '+' : '-'}₱${Math.abs(parseFloat(transaction.amount) || 0).toFixed(2)}
+                    <div class="activity-amount-value ${amountClass}">
+                        ${amountPrefix}₱${Math.abs(parseFloat(transaction.amount) || 0).toFixed(2)}
+                    </div>
+                    <div class="activity-status-badge ${statusClass}">
+                        ${statusDisplay}
                     </div>
                 </div>
             </div>
@@ -1279,56 +1418,60 @@ function renderTransactionActivity(transaction) {
     `;
 }
 
-// Render withdrawal activity item
-function renderWithdrawalActivity(withdrawal) {
+// Render withdrawal activity item (now handles transaction data)
+function renderWithdrawalActivity(transaction) {
+    const isWithdrawal = transaction.type === 'withdrawal';
+    const isRefund = transaction.type === 'refund';
+    
     let statusClass = '';
     let statusText = '';
     let statusBadgeClass = '';
+    let amountClass = '';
+    let amountPrefix = '';
+    let statusDisplay = '';
+    let titleText = '';
     
-    switch (withdrawal.status) {
-        case 'pending':
-            statusClass = 'status-pending';
-            statusText = 'Pending Review';
-            statusBadgeClass = 'status-pending';
-            break;
-        case 'approved':
-            statusClass = 'status-approved';
-            statusText = 'Approved';
-            statusBadgeClass = 'status-approved';
-            break;
-        case 'rejected':
-            statusClass = 'status-pending';
-            statusText = 'Rejected';
-            statusBadgeClass = 'status-pending';
-            break;
-        default:
-            statusClass = 'status-pending';
-            statusText = 'Processing';
-            statusBadgeClass = 'status-pending';
+    if (isWithdrawal) {
+        // Withdrawal transaction
+        statusClass = 'withdrawal-pending'; // Red background for withdrawal requests
+        statusText = 'Pending Review';
+        statusBadgeClass = 'status-pending';
+        amountClass = 'negative'; // Red for withdrawals
+        amountPrefix = '-';
+        statusDisplay = 'DEDUCTED';
+        titleText = 'Withdrawal Request';
+    } else if (isRefund) {
+        // Refund transaction
+        statusClass = 'withdrawal-rejected'; // Red background for refunds
+        statusText = 'Rejected';
+        statusBadgeClass = 'status-rejected';
+        amountClass = 'positive'; // Green for refunds
+        amountPrefix = '+';
+        statusDisplay = 'EARNED';
+        titleText = 'Withdrawal Refund';
     }
     
-    // Get appropriate icon based on status - use same icons as transaction history
+    // Use EXACT same icons as Transaction History
     let iconSvg = '';
-    switch (withdrawal.status) {
-        case 'pending':
-            // Use wallet icon for pending withdrawals (same as transaction history)
-            iconSvg = '<path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-            break;
-        case 'approved':
-            // Use checkmark for approved withdrawals (same as transaction history)
-            iconSvg = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
-            break;
-        case 'rejected':
-            // Use X icon for rejected withdrawals
-            iconSvg = '<path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
-            break;
-        default:
-            // Use wallet icon for default/processing
-            iconSvg = '<path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    if (isWithdrawal) {
+        // Red wallet icon for withdrawal requests
+        iconSvg = '<path d="M21 12V7H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 5v14a2 2 0 0 0 2 2h15v-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 15l3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    } else if (isRefund) {
+        // Blue refresh icon for refunds
+        iconSvg = '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    
+    // Extract method from description
+    let method = 'N/A';
+    if (transaction.description) {
+        const methodMatch = transaction.description.match(/via (\w+)/i);
+        if (methodMatch) {
+            method = methodMatch[1].toUpperCase();
+        }
     }
     
     return `
-        <div class="activity-item-modern withdrawal-${withdrawal.status}">
+        <div class="activity-item-modern withdrawal-${transaction.type}">
             <div class="activity-item-content">
                 <div class="activity-icon-modern ${statusClass}">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1336,22 +1479,22 @@ function renderWithdrawalActivity(withdrawal) {
                     </svg>
                 </div>
                 <div class="activity-details-modern">
-                    <div class="activity-title-text">Withdrawal Request</div>
+                    <div class="activity-title-text">${titleText}</div>
                     <div class="activity-description-modern">
-                        <span class="activity-type-badge">${withdrawal.method.toUpperCase()}</span>
+                        <span class="activity-type-badge">${method}</span>
                         <span class="activity-status-badge ${statusBadgeClass}">
                             ${statusText}
                         </span>
                     </div>
-                    <div class="activity-reference">Ref: ${String(withdrawal.id).slice(0, 8)}</div>
-                    <div class="activity-time-modern">${new Date(withdrawal.created_at).toLocaleString()}</div>
+                    <div class="activity-reference">Ref: ${transaction.reference || String(transaction.id).slice(0, 8)}</div>
+                    <div class="activity-time-modern">${new Date(transaction.created_at).toLocaleString()}</div>
                 </div>
                 <div class="activity-amount-modern">
-                    <div class="activity-amount-value ${withdrawal.status === 'approved' ? 'positive' : 'negative'}">
-                        -₱${parseFloat(withdrawal.amount).toFixed(2)}
+                    <div class="activity-amount-value ${amountClass}">
+                        ${amountPrefix}₱${Math.abs(parseFloat(transaction.amount)).toFixed(2)}
                     </div>
                     <div class="activity-status-badge ${statusBadgeClass}">
-                        ${withdrawal.status === 'approved' ? 'PROCESSED' : 'PENDING'}
+                        ${statusDisplay}
                     </div>
                 </div>
             </div>
@@ -1408,6 +1551,121 @@ function privacySettings() {
     });
 }
 
+// Activity logging functions for user actions
+async function logUserActivity(activityType, description, taskId = null, taskTitle = null, amount = null) {
+    try {
+        const userId = window.currentUser?.id;
+        if (!userId) return;
+
+        const activityData = {
+            user_id: userId,
+            activity_type: activityType,
+            description: description,
+            created_at: new Date().toISOString()
+        };
+
+        // Add task-specific data if provided
+        if (taskId) activityData.task_id = taskId;
+        if (taskTitle) activityData.task_title = taskTitle;
+        if (amount) activityData.amount = amount;
+
+        const { error } = await supabaseClient
+            .from('user_activities')
+            .insert(activityData);
+
+        if (error) {
+            console.error('Error logging user activity:', error);
+        } else {
+            console.log('User activity logged:', activityType, description);
+        }
+    } catch (error) {
+        console.error('Error in logUserActivity:', error);
+    }
+}
+
+// Render user activity item
+function renderUserActivity(activity) {
+    let iconSvg = '';
+    let statusClass = '';
+    let statusText = '';
+    let amountDisplay = '';
+    
+    switch (activity.activity_type) {
+        case 'task_started':
+            iconSvg = '<path d="M8 5v14l11-7z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-info';
+            statusText = 'Started';
+            break;
+        case 'task_submitted':
+            iconSvg = '<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-pending';
+            statusText = 'Submitted';
+            break;
+        case 'task_restarted':
+            iconSvg = '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-warning';
+            statusText = 'Restarted';
+            break;
+        case 'task_expired':
+            iconSvg = '<path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-rejected';
+            statusText = 'Expired';
+            break;
+        case 'task_approved':
+            iconSvg = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-approved';
+            statusText = 'Approved';
+            amountDisplay = `+₱${parseFloat(activity.amount || 0).toFixed(2)}`;
+            break;
+        case 'task_rejected':
+            iconSvg = '<path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-rejected';
+            statusText = 'Rejected';
+            break;
+        default:
+            iconSvg = '<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            statusClass = 'status-info';
+            statusText = 'Activity';
+    }
+    
+    return `
+        <div class="activity-item-modern user-activity-${activity.activity_type}">
+            <div class="activity-item-content">
+                <div class="activity-icon-modern ${statusClass}">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        ${iconSvg}
+                    </svg>
+                </div>
+                <div class="activity-details-modern">
+                    <div class="activity-title-text">${activity.description}</div>
+                    <div class="activity-description-modern">
+                        <span class="activity-type-badge">TASK</span>
+                        <span class="activity-status-badge ${statusClass}">
+                            ${statusText}
+                        </span>
+                    </div>
+                    <div class="activity-reference">Ref: ${activity.reference || String(activity.id).slice(0, 8)}</div>
+                    <div class="activity-time-modern">${new Date(activity.created_at).toLocaleString()}</div>
+                </div>
+                <div class="activity-amount-modern">
+                    ${amountDisplay ? `
+                        <div class="activity-amount-value positive">
+                            ${amountDisplay}
+                        </div>
+                        <div class="activity-status-badge status-approved">
+                            EARNED
+                        </div>
+                    ` : `
+                        <div class="activity-status-badge ${statusClass}">
+                            ${statusText.toUpperCase()}
+                        </div>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Make functions globally available
 window.switchSection = switchSection;
 window.initSectionNavigation = initSectionNavigation;
@@ -1417,6 +1675,355 @@ window.updateWalletPreview = updateWalletPreview;
 // editProfile is now handled by profile-handler.js
 window.changePassword = changePassword;
 window.showWithdrawalModal = showWithdrawalModal;
+window.logUserActivity = logUserActivity;
+
+// Activity Filter Modal Functions
+function showActivityFilterModal() {
+    const modalContent = `
+        <div class="activity-filter-modal">
+            <div class="filter-section">
+                <h4 class="filter-title">Filter by Type</h4>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="radio" name="activityType" value="all" ${activityFilters.type === 'all' ? 'checked' : ''}>
+                        <span class="filter-label">All Activities</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityType" value="withdrawal" ${activityFilters.type === 'withdrawal' ? 'checked' : ''}>
+                        <span class="filter-label">Withdrawals</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityType" value="transaction" ${activityFilters.type === 'transaction' ? 'checked' : ''}>
+                        <span class="filter-label">Transactions</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityType" value="submission" ${activityFilters.type === 'submission' ? 'checked' : ''}>
+                        <span class="filter-label">Task Submissions</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityType" value="user_activity" ${activityFilters.type === 'user_activity' ? 'checked' : ''}>
+                        <span class="filter-label">User Activities</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4 class="filter-title">Filter by Status</h4>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="radio" name="activityStatus" value="all" ${activityFilters.status === 'all' ? 'checked' : ''}>
+                        <span class="filter-label">All Statuses</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityStatus" value="pending" ${activityFilters.status === 'pending' ? 'checked' : ''}>
+                        <span class="filter-label">Pending</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityStatus" value="approved" ${activityFilters.status === 'approved' ? 'checked' : ''}>
+                        <span class="filter-label">Approved</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityStatus" value="rejected" ${activityFilters.status === 'rejected' ? 'checked' : ''}>
+                        <span class="filter-label">Rejected</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="activityStatus" value="completed" ${activityFilters.status === 'completed' ? 'checked' : ''}>
+                        <span class="filter-label">Completed</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4 class="filter-title">Filter by Date</h4>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="radio" name="dateRange" value="all" ${activityFilters.dateRange === 'all' ? 'checked' : ''}>
+                        <span class="filter-label">All Time</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="dateRange" value="today" ${activityFilters.dateRange === 'today' ? 'checked' : ''}>
+                        <span class="filter-label">Today</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="dateRange" value="week" ${activityFilters.dateRange === 'week' ? 'checked' : ''}>
+                        <span class="filter-label">This Week</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="dateRange" value="month" ${activityFilters.dateRange === 'month' ? 'checked' : ''}>
+                        <span class="filter-label">This Month</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="dateRange" value="custom" ${activityFilters.dateRange === 'custom' ? 'checked' : ''}>
+                        <span class="filter-label">Custom Range</span>
+                    </label>
+                </div>
+                <div class="custom-date-range" id="customDateRange" style="display: ${activityFilters.dateRange === 'custom' ? 'block' : 'none'};">
+                    <div class="date-inputs">
+                        <div class="date-input-group">
+                            <label>Start Date</label>
+                            <input type="date" id="customStartDate" value="${activityFilters.customStartDate}">
+                        </div>
+                        <div class="date-input-group">
+                            <label>End Date</label>
+                            <input type="date" id="customEndDate" value="${activityFilters.customEndDate}">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="filter-section">
+                <h4 class="filter-title">Filter by Amount</h4>
+                <div class="filter-options">
+                    <label class="filter-option">
+                        <input type="radio" name="amountRange" value="all" ${activityFilters.amountRange === 'all' ? 'checked' : ''}>
+                        <span class="filter-label">All Amounts</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="amountRange" value="positive" ${activityFilters.amountRange === 'positive' ? 'checked' : ''}>
+                        <span class="filter-label">Earnings Only</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="amountRange" value="negative" ${activityFilters.amountRange === 'negative' ? 'checked' : ''}>
+                        <span class="filter-label">Deductions Only</span>
+                    </label>
+                    <label class="filter-option">
+                        <input type="radio" name="amountRange" value="custom" ${activityFilters.amountRange === 'custom' ? 'checked' : ''}>
+                        <span class="filter-label">Custom Range</span>
+                    </label>
+                </div>
+                <div class="custom-amount-range" id="customAmountRange" style="display: ${activityFilters.amountRange === 'custom' ? 'block' : 'none'};">
+                    <div class="amount-inputs">
+                        <div class="amount-input-group">
+                            <label>Min Amount (₱)</label>
+                            <input type="number" id="customMinAmount" value="${activityFilters.customMinAmount}" placeholder="0.00" step="0.01">
+                        </div>
+                        <div class="amount-input-group">
+                            <label>Max Amount (₱)</label>
+                            <input type="number" id="customMaxAmount" value="${activityFilters.customMaxAmount}" placeholder="1000.00" step="0.01">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    if (window.openModal) {
+        window.openModal({
+            title: 'Filter Activities',
+            content: modalContent,
+            primaryButton: {
+                text: 'Apply Filters',
+                action: applyActivityFilters
+            },
+            secondaryButton: {
+                text: 'Clear All',
+                action: clearActivityFilters
+            },
+            closable: true,
+            onOpen: () => {
+                // Add event listeners for dynamic sections
+                setupFilterEventListeners();
+            }
+        });
+    }
+}
+
+// Setup filter modal event listeners
+function setupFilterEventListeners() {
+    // Date range toggle
+    const dateRangeInputs = document.querySelectorAll('input[name="dateRange"]');
+    dateRangeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const customDateRange = document.getElementById('customDateRange');
+            if (customDateRange) {
+                customDateRange.style.display = this.value === 'custom' ? 'block' : 'none';
+            }
+        });
+    });
+
+    // Amount range toggle
+    const amountRangeInputs = document.querySelectorAll('input[name="amountRange"]');
+    amountRangeInputs.forEach(input => {
+        input.addEventListener('change', function() {
+            const customAmountRange = document.getElementById('customAmountRange');
+            if (customAmountRange) {
+                customAmountRange.style.display = this.value === 'custom' ? 'block' : 'none';
+            }
+        });
+    });
+}
+
+// Apply activity filters
+function applyActivityFilters() {
+    // Get filter values from modal
+    const typeInput = document.querySelector('input[name="activityType"]:checked');
+    const statusInput = document.querySelector('input[name="activityStatus"]:checked');
+    const dateRangeInput = document.querySelector('input[name="dateRange"]:checked');
+    const amountRangeInput = document.querySelector('input[name="amountRange"]:checked');
+    
+    // Update filter state
+    activityFilters.type = typeInput ? typeInput.value : 'all';
+    activityFilters.status = statusInput ? statusInput.value : 'all';
+    activityFilters.dateRange = dateRangeInput ? dateRangeInput.value : 'all';
+    activityFilters.amountRange = amountRangeInput ? amountRangeInput.value : 'all';
+    
+    // Get custom values
+    const customStartDate = document.getElementById('customStartDate');
+    const customEndDate = document.getElementById('customEndDate');
+    const customMinAmount = document.getElementById('customMinAmount');
+    const customMaxAmount = document.getElementById('customMaxAmount');
+    
+    if (customStartDate) activityFilters.customStartDate = customStartDate.value;
+    if (customEndDate) activityFilters.customEndDate = customEndDate.value;
+    if (customMinAmount) activityFilters.customMinAmount = customMinAmount.value;
+    if (customMaxAmount) activityFilters.customMaxAmount = customMaxAmount.value;
+    
+    // Close modal
+    if (window.closeModal) {
+        window.closeModal();
+    }
+    
+    // Reload activity history with filters
+    loadActivityHistory();
+    
+    // Update filter button to show active state
+    updateFilterButtonState();
+}
+
+// Clear all activity filters
+function clearActivityFilters() {
+    // Reset filter state
+    activityFilters = {
+        type: 'all',
+        status: 'all',
+        dateRange: 'all',
+        customStartDate: '',
+        customEndDate: '',
+        amountRange: 'all',
+        customMinAmount: '',
+        customMaxAmount: ''
+    };
+    
+    // Close modal
+    if (window.closeModal) {
+        window.closeModal();
+    }
+    
+    // Reload activity history without filters
+    loadActivityHistory();
+    
+    // Update filter button to show inactive state
+    updateFilterButtonState();
+}
+
+// Update filter button visual state
+function updateFilterButtonState() {
+    const filterBtn = document.querySelector('.activity-filter-btn');
+    if (filterBtn) {
+        const hasActiveFilters = Object.values(activityFilters).some(value => 
+            value !== 'all' && value !== ''
+        );
+        
+        if (hasActiveFilters) {
+            filterBtn.classList.add('active');
+            filterBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filter <span class="filter-count">●</span>';
+        } else {
+            filterBtn.classList.remove('active');
+            filterBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg> Filter';
+        }
+    }
+}
+
+// Filter activities based on current filters
+function filterActivities(activities) {
+    return activities.filter(activity => {
+        // Filter by type
+        if (activityFilters.type !== 'all' && activity.activity_type !== activityFilters.type) {
+            return false;
+        }
+        
+        // Filter by status
+        if (activityFilters.status !== 'all') {
+            const activityStatus = getActivityStatus(activity);
+            if (activityStatus !== activityFilters.status) {
+                return false;
+            }
+        }
+        
+        // Filter by date range
+        if (activityFilters.dateRange !== 'all') {
+            const activityDate = new Date(activity.created_at);
+            const now = new Date();
+            
+            switch (activityFilters.dateRange) {
+                case 'today':
+                    if (!isSameDay(activityDate, now)) return false;
+                    break;
+                case 'week':
+                    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+                    if (activityDate < weekAgo) return false;
+                    break;
+                case 'month':
+                    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+                    if (activityDate < monthAgo) return false;
+                    break;
+                case 'custom':
+                    if (activityFilters.customStartDate && activityDate < new Date(activityFilters.customStartDate)) return false;
+                    if (activityFilters.customEndDate && activityDate > new Date(activityFilters.customEndDate)) return false;
+                    break;
+            }
+        }
+        
+        // Filter by amount range
+        if (activityFilters.amountRange !== 'all') {
+            const activityAmount = getActivityAmount(activity);
+            
+            switch (activityFilters.amountRange) {
+                case 'positive':
+                    if (activityAmount <= 0) return false;
+                    break;
+                case 'negative':
+                    if (activityAmount >= 0) return false;
+                    break;
+                case 'custom':
+                    if (activityFilters.customMinAmount && activityAmount < parseFloat(activityFilters.customMinAmount)) return false;
+                    if (activityFilters.customMaxAmount && activityAmount > parseFloat(activityFilters.customMaxAmount)) return false;
+                    break;
+            }
+        }
+        
+        return true;
+    });
+}
+
+// Get activity status for filtering
+function getActivityStatus(activity) {
+    if (activity.activity_type === 'withdrawal') {
+        return activity.status;
+    } else if (activity.activity_type === 'submission') {
+        return activity.status;
+    } else if (activity.activity_type === 'user_activity') {
+        return activity.activity_type === 'task_approved' ? 'approved' : 'completed';
+    } else if (activity.activity_type === 'transaction') {
+        return activity.type === 'credit' ? 'approved' : 'completed';
+    }
+    return 'completed';
+}
+
+// Get activity amount for filtering
+function getActivityAmount(activity) {
+    if (activity.amount !== undefined) {
+        return parseFloat(activity.amount) || 0;
+    }
+    return 0;
+}
+
+// Check if two dates are the same day
+function isSameDay(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+}
 // Show disabled account message for activity
 function showDisabledActivityMessage() {
     const activityList = document.getElementById('activity-list')
@@ -1436,6 +2043,77 @@ function showDisabledActivityMessage() {
             </div>
         `
     }
+}
+
+// Render submission activity item
+function renderSubmissionActivity(submission) {
+    let statusClass = '';
+    let statusText = '';
+    let statusBadgeClass = '';
+    let iconSvg = '';
+    
+    switch (submission.status) {
+        case 'pending':
+            statusClass = 'status-pending';
+            statusText = 'Under Review';
+            statusBadgeClass = 'status-pending';
+            iconSvg = '<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            break;
+        case 'approved':
+            statusClass = 'status-approved';
+            statusText = 'Approved';
+            statusBadgeClass = 'status-approved';
+            iconSvg = '<path d="M20 6L9 17l-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+            break;
+        case 'rejected':
+            statusClass = 'status-pending';
+            statusText = 'Rejected';
+            statusBadgeClass = 'status-pending';
+            iconSvg = '<path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            break;
+        case 'resubmit':
+            statusClass = 'status-pending';
+            statusText = 'Resubmit Required';
+            statusBadgeClass = 'status-pending';
+            iconSvg = '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21v-5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+            break;
+        default:
+            statusClass = 'status-pending';
+            statusText = 'Processing';
+            statusBadgeClass = 'status-pending';
+            iconSvg = '<path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>';
+    }
+    
+    const taskTitle = submission.tasks?.title || 'Unknown Task';
+    const rewardAmount = submission.tasks?.reward_amount || 0;
+    
+    return `
+        <div class="activity-item-modern submission-${submission.status}">
+            <div class="activity-item-content">
+                <div class="activity-icon-modern ${statusClass}">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        ${iconSvg}
+                    </svg>
+                </div>
+                <div class="activity-details-modern">
+                    <div class="activity-title-text">${taskTitle}</div>
+                    <div class="activity-description-modern">
+                        <span class="activity-type-badge">${statusText}</span>
+                        <span class="activity-reference">Ref: ${submission.reference || String(submission.id).slice(0, 8)}</span>
+                    </div>
+                    <div class="activity-time-modern">${new Date(submission.created_at).toLocaleString()}</div>
+                </div>
+                <div class="activity-amount-modern">
+                    <div class="activity-amount-value ${submission.status === 'approved' ? 'positive' : 'neutral'}">
+                        ${submission.status === 'approved' ? '+' : ''}₱${rewardAmount.toFixed(2)}
+                    </div>
+                    <div class="activity-status-badge ${statusBadgeClass}">
+                        ${statusText}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 window.notificationSettings = notificationSettings;

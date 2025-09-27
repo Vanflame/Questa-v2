@@ -10,26 +10,77 @@ let currentUser = null
 let userProfile = null
 let isAccountDisabled = false
 
-// Show loading spinner
+// Show loading spinner - use unified loading system everywhere
 function showLoading() {
+    // Always use unified loading system if available
+    if (window.showDashboardLoading) {
+        window.showDashboardLoading('Loading...')
+        return
+    }
+    
+    // Fallback: create a simple loading indicator
     const existingSpinner = document.getElementById('loading-spinner')
     if (existingSpinner) return
     
     const spinner = document.createElement('div')
     spinner.id = 'loading-spinner'
+    spinner.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+    `
     spinner.innerHTML = `
-        <div class="loading-overlay">
-            <div class="loading-spinner">
-                <div class="spinner"></div>
-                <p>Loading...</p>
-            </div>
+        <div style="
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        ">
+            <div style="
+                width: 40px;
+                height: 40px;
+                border: 4px solid #f3f3f3;
+                border-top: 4px solid #3b82f6;
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 1rem;
+            "></div>
+            <p style="margin: 0; color: #374151; font-weight: 500;">Loading...</p>
         </div>
     `
     document.body.appendChild(spinner)
+    
+    // Add CSS animation if not already present
+    if (!document.querySelector('#auth-loading-styles')) {
+        const styles = document.createElement('style')
+        styles.id = 'auth-loading-styles'
+        styles.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `
+        document.head.appendChild(styles)
+    }
 }
 
-// Hide loading spinner
+// Hide loading spinner - use unified loading system everywhere
 function hideLoading() {
+    // Always use unified loading system if available
+    if (window.hideDashboardLoading) {
+        window.hideDashboardLoading()
+        return
+    }
+    
+    // Fallback: remove simple loading indicator
     const spinner = document.getElementById('loading-spinner')
     if (spinner) {
         spinner.remove()
@@ -187,7 +238,10 @@ async function checkAuthAndRedirect() {
     }
     
     if (isProtectedPage || isAuthPage) {
-        showLoading()
+        // Only show loading for protected pages, not auth pages
+        if (isProtectedPage) {
+            showLoading()
+        }
         
         try {
             const { data: { session } } = await supabaseClient.auth.getSession()
@@ -204,7 +258,7 @@ async function checkAuthAndRedirect() {
                 }
                 // Allow access to login/register pages
                 console.log('No session on auth page, allowing access')
-                hideLoading()
+                // Don't hide loading if we didn't show it
                 return
             }
             
@@ -234,12 +288,12 @@ async function checkAuthAndRedirect() {
                     if (currentPath.startsWith('/admin')) {
                         // Admin accessing admin panel - allow
                         console.log('Admin accessing admin panel - allowed')
-                        hideLoading()
+                        if (isProtectedPage) hideLoading()
                         return
                     } else {
                         // Admin trying to access non-admin areas - redirect to admin panel
                         console.log('Admin user accessing non-admin area, redirecting to admin panel')
-                        hideLoading()
+                        if (isProtectedPage) hideLoading()
                         window.authRedirecting = true
                         window.location.href = '/admin'
                         return
@@ -248,7 +302,7 @@ async function checkAuthAndRedirect() {
                     // Regular user trying to access admin panel - BLOCK COMPLETELY
                     if (currentPath.startsWith('/admin')) {
                         console.log('Regular user attempting admin access - BLOCKED')
-                        hideLoading()
+                        if (isProtectedPage) hideLoading()
                         window.authRedirecting = true
                         
                         // Show access denied modal instead of simple alert
@@ -292,7 +346,7 @@ async function checkAuthAndRedirect() {
                 console.error('Admin check failed:', adminError)
                 // If admin check fails and user is trying to access admin, block access
                 if (currentPath.startsWith('/admin')) {
-                    hideLoading()
+                    if (isProtectedPage) hideLoading()
                     window.authRedirecting = true
                     window.location.href = '/dashboard'
                     return
@@ -305,19 +359,19 @@ async function checkAuthAndRedirect() {
                     const isAdmin = await checkAdminStatus(currentUser.id)
                     if (isAdmin) {
                         console.log('Admin user on auth page, redirecting to admin panel')
-                        hideLoading()
+                        // Don't hide loading if we didn't show it
                         window.authRedirecting = true
                         window.location.href = '/admin'
                     } else {
                         console.log('User authenticated on auth page, redirecting to dashboard')
-                        hideLoading()
+                        // Don't hide loading if we didn't show it
                         window.authRedirecting = true
                         window.location.href = '/dashboard'
                     }
                     return
                 } catch (error) {
                     console.log('User authenticated on auth page, redirecting to dashboard')
-                    hideLoading()
+                    // Don't hide loading if we didn't show it
                     window.authRedirecting = true
                     window.location.href = '/dashboard'
                     return
@@ -325,12 +379,12 @@ async function checkAuthAndRedirect() {
             }
             
             console.log('Authentication successful, allowing access')
-            hideLoading()
+            if (isProtectedPage) hideLoading()
             
         } catch (error) {
             console.error('Auth check error:', error)
-            hideLoading()
             if (isProtectedPage) {
+                hideLoading()
                 window.authRedirecting = true
                 window.location.href = '/login'
             }
@@ -1333,13 +1387,14 @@ export async function signIn(email, password) {
 }
 
 export async function signOut() {
-    showLoading()
+    // Don't show loading for logout - it's too quick and causes conflicts
+    // showLoading()
     
     try {
         const { error } = await supabaseClient.auth.signOut()
         
         if (error) {
-            hideLoading()
+            // hideLoading()
             alert('Sign out error: ' + error.message)
             return false
         }
@@ -1348,11 +1403,11 @@ export async function signOut() {
         currentUser = null
         userProfile = null
         
-        hideLoading()
+        // hideLoading()
         window.location.href = '/login'
         return true
     } catch (error) {
-        hideLoading()
+        // hideLoading()
         alert('Sign out error: ' + error.message)
         return false
     }

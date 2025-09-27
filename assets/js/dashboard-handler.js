@@ -59,9 +59,134 @@ async function waitForAuth() {
     return null
 }
 
+// Show unified loading overlay
+function showDashboardLoading(message = 'Loading Dashboard...') {
+    // Remove any existing loading overlay
+    const existingOverlay = document.getElementById('dashboard-loading-overlay')
+    if (existingOverlay) {
+        existingOverlay.remove()
+    }
+    
+    // Remove any old auth loading spinners
+    const authSpinner = document.getElementById('loading-spinner')
+    if (authSpinner) {
+        authSpinner.remove()
+    }
+    
+    // Remove any old loading overlays from base.css
+    const oldLoadingOverlays = document.querySelectorAll('.loading-overlay')
+    oldLoadingOverlays.forEach(overlay => overlay.remove())
+    
+    // Create loading overlay
+    const loadingOverlay = document.createElement('div')
+    loadingOverlay.id = 'dashboard-loading-overlay'
+    loadingOverlay.innerHTML = `
+        <div class="dashboard-loading-container">
+            <div class="dashboard-loading-spinner">
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+                <div class="spinner-ring"></div>
+            </div>
+            <h3 class="loading-title">${message}</h3>
+            <p class="loading-subtitle">Please wait while we prepare your dashboard</p>
+        </div>
+    `
+    
+    // Add to body
+    document.body.appendChild(loadingOverlay)
+}
+
+// Hide unified loading overlay
+function hideDashboardLoading() {
+    const loadingOverlay = document.getElementById('dashboard-loading-overlay')
+    if (loadingOverlay) {
+        loadingOverlay.style.opacity = '0'
+        loadingOverlay.style.transform = 'scale(0.95)'
+        setTimeout(() => {
+            loadingOverlay.remove()
+        }, 300)
+    }
+}
+
+// Show subtle refresh indicator
+function showRefreshIndicator() {
+    // Remove existing indicator
+    const existingIndicator = document.getElementById('refresh-indicator')
+    if (existingIndicator) {
+        existingIndicator.remove()
+    }
+    
+    // Create refresh indicator
+    const refreshIndicator = document.createElement('div')
+    refreshIndicator.id = 'refresh-indicator'
+    refreshIndicator.innerHTML = `
+        <div class="refresh-indicator">
+            <div class="refresh-spinner"></div>
+            <span>Refreshing...</span>
+        </div>
+    `
+    
+    // Add to top of page
+    document.body.appendChild(refreshIndicator)
+}
+
+// Hide refresh indicator
+function hideRefreshIndicator() {
+    const refreshIndicator = document.getElementById('refresh-indicator')
+    if (refreshIndicator) {
+        refreshIndicator.style.opacity = '0'
+        setTimeout(() => {
+            refreshIndicator.remove()
+        }, 300)
+    }
+}
+
+// Clean up any old loading states that might be lingering
+function cleanupOldLoadingStates() {
+    // Remove any old auth loading spinners
+    const authSpinner = document.getElementById('loading-spinner')
+    if (authSpinner) {
+        authSpinner.remove()
+    }
+    
+    // Remove any old loading overlays from base.css
+    const oldLoadingOverlays = document.querySelectorAll('.loading-overlay')
+    oldLoadingOverlays.forEach(overlay => overlay.remove())
+    
+    // Remove any old loading spinners
+    const oldLoadingSpinners = document.querySelectorAll('.loading-spinner:not(#dashboard-loading-overlay .loading-spinner)')
+    oldLoadingSpinners.forEach(spinner => {
+        if (spinner.closest('#dashboard-loading-overlay')) return // Don't remove dashboard loading spinner
+        spinner.remove()
+    })
+    
+    // Remove any admin loading spinners
+    const adminSpinner = document.getElementById('admin-loading-spinner')
+    if (adminSpinner) {
+        adminSpinner.remove()
+    }
+    
+    // Remove any upload loading overlays
+    const uploadOverlays = document.querySelectorAll('.upload-loading-overlay')
+    uploadOverlays.forEach(overlay => overlay.remove())
+    
+    console.log('Cleaned up old loading states')
+}
+
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Dashboard initializing...')
+    
+    // Clean up any old loading states first
+    cleanupOldLoadingStates()
+    
+    // Additional cleanup for any lingering elements
+    setTimeout(() => {
+        cleanupOldLoadingStates()
+    }, 100)
+    
+    // Show loading overlay immediately
+    showDashboardLoading('Initializing Dashboard...')
     
     try {
         // Wait for auth module to be ready
@@ -71,6 +196,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         
         if (!currentUser) {
             console.log('No user found after waiting, redirecting to login')
+            hideDashboardLoading()
             window.location.href = '/login'
             return
         }
@@ -102,8 +228,14 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.log('Profile creation failed, but continuing:', error)
         }
         
+        // Update loading message
+        showDashboardLoading('Loading Your Data...')
+        
         // Load and render dashboard data
         await refreshDashboardData()
+        
+        // Update loading message
+        showDashboardLoading('Preparing Interface...')
         
         // Load tasks section data since it's the default
         if (window.loadSectionData) {
@@ -113,19 +245,31 @@ document.addEventListener('DOMContentLoaded', async function() {
         // Attach event listeners
         attachEventListeners()
         
+        // Hide loading overlay
+        hideDashboardLoading()
+        
+        // Clean up any remaining old loading states
+        cleanupOldLoadingStates()
+        
         // Refresh data when page becomes visible (user navigates back from admin)
         // Add a small delay to prevent immediate refresh on initial load
         setTimeout(() => {
             document.addEventListener('visibilitychange', async function() {
                 if (!document.hidden) {
                     console.log('Page became visible, refreshing dashboard data...')
+                    // Show subtle loading indicator for refresh
+                    showRefreshIndicator()
                     await refreshDashboardData()
+                    hideRefreshIndicator()
                 }
             })
         }, 1000)
         
     } catch (error) {
         console.error('Error in dashboard initialization:', error)
+        
+        // Hide loading overlay
+        hideDashboardLoading()
         
         // Only redirect to login for authentication errors, not module loading errors
         if (error.message && error.message.includes('Tasks module failed to load')) {
@@ -464,11 +608,17 @@ function attachEventListeners() {
     // Notification bell click
     const notificationBell = document.getElementById('notification-bell')
     if (notificationBell) {
-        notificationBell.addEventListener('click', function(e) {
+        notificationBell.addEventListener('click', async function(e) {
             e.stopPropagation()
             const dropdown = document.getElementById('notification-dropdown')
             if (dropdown) {
-                dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none'
+                const isOpening = dropdown.style.display === 'none' || dropdown.style.display === ''
+                dropdown.style.display = isOpening ? 'block' : 'none'
+                
+                // Auto-mark all notifications as read when user opens the dropdown
+                if (isOpening && typeof window.markAllNotificationsRead === 'function') {
+                    await window.markAllNotificationsRead()
+                }
             }
         })
     }
@@ -502,3 +652,48 @@ function attachEventListeners() {
         }
     })
 }
+
+// Global loading manager to prevent blank screens
+window.loadingManager = {
+    activeLoaders: new Set(),
+    
+    show: function(message = 'Loading...', type = 'overlay') {
+        const loaderId = `${type}_${Date.now()}_${Math.random()}`
+        this.activeLoaders.add(loaderId)
+        
+        if (type === 'overlay') {
+            showDashboardLoading(message)
+        } else if (type === 'indicator') {
+            showRefreshIndicator(message)
+        }
+        
+        return loaderId
+    },
+    
+    hide: function(loaderId = null) {
+        if (loaderId) {
+            this.activeLoaders.delete(loaderId)
+        } else {
+            this.activeLoaders.clear()
+        }
+        
+        if (this.activeLoaders.size === 0) {
+            hideDashboardLoading()
+            hideRefreshIndicator()
+        }
+    },
+    
+    hideAll: function() {
+        this.activeLoaders.clear()
+        hideDashboardLoading()
+        hideRefreshIndicator()
+        cleanupOldLoadingStates()
+    }
+}
+
+// Export functions for global access
+window.showDashboardLoading = showDashboardLoading
+window.hideDashboardLoading = hideDashboardLoading
+window.showRefreshIndicator = showRefreshIndicator
+window.hideRefreshIndicator = hideRefreshIndicator
+window.cleanupOldLoadingStates = cleanupOldLoadingStates

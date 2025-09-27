@@ -35,49 +35,68 @@ async function createAdminNotification(userId, title, message, type = 'info') {
 // Global variables
 let allWithdrawals = []
 let currentWithdrawalFilter = 'pending'
+let isProcessingWithdrawalApproval = false
+let isProcessingWithdrawalRejection = false
+let withdrawalEventListenersAttached = false
 
-// Load withdrawals data
-async function loadWithdrawals() {
+// Lazy loading variables
+let isLoadingWithdrawals = false
+let currentPage = 1
+let itemsPerPage = 20
+let hasMoreWithdrawals = true
+let userDataCache = new Map() // Cache user data to avoid repeated fetches
+
+// Load withdrawals data with lazy loading
+async function loadWithdrawals(reset = false) {
+    if (isLoadingWithdrawals) {
+        console.log('Already loading withdrawals, skipping...')
+        return
+    }
+    
+    if (reset) {
+        allWithdrawals = []
+        currentPage = 1
+        hasMoreWithdrawals = true
+    }
+    
+    if (!hasMoreWithdrawals) {
+        console.log('No more withdrawals to load')
+        return
+    }
+    
     try {
-        console.log('Loading withdrawals...')
+        isLoadingWithdrawals = true
+        console.log(`Loading withdrawals page ${currentPage}...`)
         
-        // First, get withdrawals
+        // Load withdrawals with pagination
         const { data: withdrawalsData, error: withdrawalsError } = await supabaseClient
             .from('withdrawals')
             .select('*')
             .order('created_at', { ascending: false })
+            .range((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage - 1)
         
         if (withdrawalsError) {
             console.error('Error loading withdrawals:', withdrawalsError)
-            allWithdrawals = []
             return
         }
         
-        // Then, get user data for each withdrawal
-        const withdrawalsWithUsers = await Promise.all(
-            (withdrawalsData || []).map(async (withdrawal) => {
-                const { data: userData } = await supabaseClient
-                    .from('profiles')
-                    .select('email')
-                    .eq('id', withdrawal.user_id)
-                    .single()
-                
-                return {
-                    ...withdrawal,
-                    user_profiles: {
-                        user_id: withdrawal.user_id,
-                        email: userData?.email || 'Unknown',
-                        username: userData?.email || 'Unknown'
-                    }
-                }
-            })
-        )
+        if (!withdrawalsData || withdrawalsData.length === 0) {
+            hasMoreWithdrawals = false
+            console.log('No more withdrawals to load')
+            return
+        }
         
-        allWithdrawals = withdrawalsWithUsers
+        // Check if we got fewer items than requested (last page)
+        if (withdrawalsData.length < itemsPerPage) {
+            hasMoreWithdrawals = false
+        }
         
-        console.log('Withdrawals loaded:', allWithdrawals.length)
+        // Add to existing withdrawals
+        allWithdrawals = [...allWithdrawals, ...withdrawalsData]
         
-        // Update navigation badge
+        console.log(`Loaded ${withdrawalsData.length} withdrawals (total: ${allWithdrawals.length})`)
+        
+        // Update navigation badge (only count pending from loaded data)
         const pendingWithdrawals = allWithdrawals.filter(w => w.status === 'pending').length
         const withdrawalsBadge = document.getElementById('withdrawals-badge')
         if (withdrawalsBadge) {
@@ -90,14 +109,61 @@ async function loadWithdrawals() {
             statsPendingWithdrawals.textContent = pendingWithdrawals
         }
         
+        // Increment page for next load
+        currentPage++
+        
     } catch (error) {
         console.error('Error loading withdrawals:', error)
-        allWithdrawals = []
+    } finally {
+        isLoadingWithdrawals = false
     }
 }
 
-// Render withdrawals based on current filter
-function renderWithdrawals() {
+// Load user data for a specific withdrawal (lazy loading)
+async function loadUserDataForWithdrawal(withdrawal) {
+    // Check cache first
+    if (userDataCache.has(withdrawal.user_id)) {
+        return {
+            ...withdrawal,
+            user_profiles: userDataCache.get(withdrawal.user_id)
+        }
+    }
+    
+    try {
+        const { data: userData } = await supabaseClient
+            .from('profiles')
+            .select('email')
+            .eq('id', withdrawal.user_id)
+            .single()
+        
+        const userProfile = {
+            user_id: withdrawal.user_id,
+            email: userData?.email || 'Unknown',
+            username: userData?.email || 'Unknown'
+        }
+        
+        // Cache the user data
+        userDataCache.set(withdrawal.user_id, userProfile)
+        
+        return {
+            ...withdrawal,
+            user_profiles: userProfile
+        }
+    } catch (error) {
+        console.error('Error loading user data:', error)
+        return {
+            ...withdrawal,
+            user_profiles: {
+                user_id: withdrawal.user_id,
+                email: 'Unknown',
+                username: 'Unknown'
+            }
+        }
+    }
+}
+
+// Render withdrawals based on current filter with lazy loading
+async function renderWithdrawals() {
     const withdrawalsList = document.getElementById('withdrawals-list')
     if (!withdrawalsList) {
         console.error('withdrawals-list element not found')
@@ -120,6 +186,18 @@ function renderWithdrawals() {
         return
     }
     
+    // Show loading state for first render
+    if (allWithdrawals.length === 0) {
+        withdrawalsList.innerHTML = `
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>Loading withdrawals...</p>
+            </div>
+        `
+        return
+    }
+    
+    // Render table with lazy loading for user data
     withdrawalsList.innerHTML = `
         <table class="admin-table">
             <thead>
@@ -137,11 +215,13 @@ function renderWithdrawals() {
             <tbody>
                 ${filteredWithdrawals.map(withdrawal => {
                     const user = withdrawal.user_profiles
-                    const userName = user?.username || user?.email || 'Unknown User'
+                    const userName = user?.username || user?.email || 'Loading...'
                     
                     return `
-                        <tr>
-                            <td>${userName}</td>
+                        <tr data-withdrawal-id="${withdrawal.id}">
+                            <td class="user-cell" data-user-id="${withdrawal.user_id}">
+                                ${userName}
+                            </td>
                             <td>₱${withdrawal.amount.toFixed(2)}</td>
                             <td>${withdrawal.method.toUpperCase()}</td>
                             <td>${withdrawal.account_name || 'Not provided'}</td>
@@ -156,7 +236,46 @@ function renderWithdrawals() {
                 }).join('')}
             </tbody>
         </table>
+        ${hasMoreWithdrawals ? `
+            <div class="load-more-container">
+                <button id="load-more-withdrawals" class="btn-load-more">
+                    <div class="loading-spinner" style="display: none;"></div>
+                    <span>Load More Withdrawals</span>
+                </button>
+            </div>
+        ` : ''}
     `
+    
+    // Attach event listeners after rendering
+    attachWithdrawalEventListeners()
+    
+    // Load user data for visible withdrawals (lazy loading)
+    await loadUserDataForVisibleWithdrawals(filteredWithdrawals)
+}
+
+// Load user data for visible withdrawals
+async function loadUserDataForVisibleWithdrawals(withdrawals) {
+    const userCells = document.querySelectorAll('.user-cell[data-user-id]')
+    
+    for (const cell of userCells) {
+        const userId = cell.getAttribute('data-user-id')
+        const withdrawal = withdrawals.find(w => w.user_id === userId)
+        
+        if (withdrawal && !withdrawal.user_profiles) {
+            // Load user data for this withdrawal
+            const withdrawalWithUser = await loadUserDataForWithdrawal(withdrawal)
+            
+            // Update the cell content
+            const userName = withdrawalWithUser.user_profiles?.username || withdrawalWithUser.user_profiles?.email || 'Unknown User'
+            cell.textContent = userName
+            
+            // Update the withdrawal in our array
+            const index = allWithdrawals.findIndex(w => w.id === withdrawal.id)
+            if (index !== -1) {
+                allWithdrawals[index] = withdrawalWithUser
+            }
+        }
+    }
 }
 
 // Get withdrawal action buttons based on status
@@ -175,9 +294,54 @@ function getWithdrawalActions(withdrawal) {
     }
 }
 
+// Update withdrawal in local array
+function updateWithdrawalInList(withdrawalId, updates) {
+    // Convert withdrawalId to number for comparison
+    const id = parseInt(withdrawalId)
+    const index = allWithdrawals.findIndex(w => w.id === id)
+    if (index !== -1) {
+        allWithdrawals[index] = { ...allWithdrawals[index], ...updates }
+        console.log('Updated withdrawal in list:', id, updates)
+    } else {
+        console.warn('Withdrawal not found in list:', id, 'Available IDs:', allWithdrawals.map(w => w.id))
+        // If not found, reload the withdrawals to get the latest data
+        loadWithdrawals()
+    }
+}
+
+// Load more withdrawals
+async function loadMoreWithdrawals() {
+    const loadMoreBtn = document.getElementById('load-more-withdrawals')
+    if (loadMoreBtn) {
+        const spinner = loadMoreBtn.querySelector('.loading-spinner')
+        const text = loadMoreBtn.querySelector('span')
+        
+        // Show loading state
+        spinner.style.display = 'inline-block'
+        text.textContent = 'Loading...'
+        loadMoreBtn.disabled = true
+        
+        try {
+            await loadWithdrawals()
+            await renderWithdrawals()
+        } finally {
+            // Hide loading state
+            spinner.style.display = 'none'
+            text.textContent = 'Load More Withdrawals'
+            loadMoreBtn.disabled = false
+        }
+    }
+}
+
 // Attach withdrawal event listeners
 function attachWithdrawalEventListeners() {
     console.log('Attaching withdrawal event listeners...')
+    
+    // Only attach listeners once
+    if (withdrawalEventListenersAttached) {
+        console.log('Withdrawal event listeners already attached, skipping...')
+        return
+    }
     
     // Filter buttons
     const filterButtons = document.querySelectorAll('.admin-filter-btn')
@@ -198,11 +362,11 @@ function attachWithdrawalEventListeners() {
         })
     })
     
-    // Withdrawal action buttons - use event delegation
+    // Withdrawal action buttons - use event delegation with specific selectors
     const withdrawalsList = document.getElementById('withdrawals-list')
     if (withdrawalsList) {
         withdrawalsList.addEventListener('click', async function(e) {
-            const button = e.target.closest('[data-action]')
+            const button = e.target.closest('[data-action="approve-withdrawal"], [data-action="reject-withdrawal"], [data-action="load-more-withdrawals"]')
             if (!button) return
             
             e.preventDefault()
@@ -213,19 +377,45 @@ function attachWithdrawalEventListeners() {
             
             console.log('Withdrawal action clicked:', action, 'ID:', withdrawalId)
             
+            // Handle load more button
+            if (action === 'load-more-withdrawals') {
+                await loadMoreWithdrawals()
+                return
+            }
+            
+            // Prevent multiple rapid clicks
+            if (button.disabled) {
+                console.log('Button already processing, ignoring click')
+                return
+            }
+            
             if (action === 'approve-withdrawal') {
+                if (isProcessingWithdrawalApproval) {
+                    console.log('Already processing withdrawal approval, ignoring click')
+                    return
+                }
+                // Just show the approval modal, don't process yet
                 await approveWithdrawal(withdrawalId)
             } else if (action === 'reject-withdrawal') {
+                if (isProcessingWithdrawalRejection) {
+                    console.log('Already processing withdrawal rejection, ignoring click')
+                    return
+                }
+                // Just show the rejection modal, don't process yet
                 await rejectWithdrawal(withdrawalId)
             }
         })
+        
+        // Mark as attached
+        withdrawalEventListenersAttached = true
+        console.log('Withdrawal event listeners attached successfully')
     }
 }
 
-// Approve withdrawal
+// Approve withdrawal - just show the modal
 async function approveWithdrawal(withdrawalId) {
     try {
-        console.log('Approving withdrawal:', withdrawalId)
+        console.log('Showing approval modal for withdrawal:', withdrawalId)
         
         // Get withdrawal details first
         const { data: withdrawalData, error: fetchError } = await supabaseClient
@@ -367,18 +557,83 @@ function showApprovalModal(withdrawalData) {
             `,
             primaryButton: {
                 text: 'Approve & Process',
-                action: async () => {
+                action: () => {
+                    // Check if already processing
+                    if (isProcessingWithdrawalApproval) {
+                        console.log('Already processing withdrawal approval, ignoring click')
+                        return false
+                    }
+                    
                     const fileInput = document.getElementById('receipt-file');
                     const file = fileInput.files[0];
                     
-                    // Process approval with optional receipt
-                    await processWithdrawalApproval(withdrawalData.id, file);
-                    return true; // Close modal
+                    // Set processing flag
+                    isProcessingWithdrawalApproval = true
+                    console.log('Setting processing flag to true for withdrawal:', withdrawalData.id)
+                    
+                    // Show loading state
+                    const submitBtn = document.querySelector('.modal-primary-btn');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = `
+                            <svg class="btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation: spin 1s linear infinite;">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                <path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Processing...
+                        `;
+                    }
+                    
+                    // Process approval asynchronously
+                    processWithdrawalApproval(withdrawalData.id, file)
+                        .then(() => {
+                            console.log('Withdrawal approval completed successfully');
+                            // Close modal after successful approval
+                            window.closeModal();
+                        })
+                        .catch((error) => {
+                            console.error('Error in approval action:', error);
+                            // Reset processing flag
+                            isProcessingWithdrawalApproval = false
+                            // Reset button state
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = 'Approve & Process';
+                            }
+                            // Show error modal
+                            if (window.openModal) {
+                                window.openModal({
+                                    title: 'Error',
+                                    content: `
+                                        <div class="modal-error-content">
+                                            <div class="modal-icon error">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+                                                    <line x1="15" y1="9" x2="9" y2="15" stroke="currentColor" stroke-width="2"/>
+                                                    <line x1="9" y1="9" x2="15" y2="15" stroke="currentColor" stroke-width="2"/>
+                                                </svg>
+                                            </div>
+                                            <h3>Error Processing Withdrawal</h3>
+                                            <p>An error occurred while processing the withdrawal approval. Please try again.</p>
+                                        </div>
+                                    `,
+                                    primaryButton: { text: 'OK', action: () => window.closeModal() },
+                                    closable: true
+                                });
+                            }
+                        });
+                    
+                    // Keep modal open until process completes
+                    return false;
                 }
             },
             secondaryButton: {
                 text: 'Cancel',
-                action: () => true // Close modal
+                action: () => {
+                    // Reset processing flag if user cancels
+                    isProcessingWithdrawalApproval = false
+                    return true // Close modal
+                }
             },
             closable: true
         });
@@ -489,6 +744,7 @@ function setupReceiptUpload() {
 async function processWithdrawalApproval(withdrawalId, receiptFile) {
     try {
         console.log('Processing withdrawal approval:', withdrawalId, 'Receipt:', !!receiptFile)
+        console.log('Current processing flag state:', isProcessingWithdrawalApproval)
         
         let receiptUrl = null;
         
@@ -558,6 +814,7 @@ async function processWithdrawalApproval(withdrawalId, receiptFile) {
             .select()
         
         console.log('Database update result:', { updateResult, error });
+        console.log('Updated withdrawal data:', updateResult);
         
         if (error) {
             console.error('Error approving withdrawal:', error)
@@ -623,7 +880,14 @@ async function processWithdrawalApproval(withdrawalId, receiptFile) {
         }
         
         console.log('Withdrawal approved successfully')
-        return await handleApprovalSuccess(withdrawalId, receiptUrl);
+        console.log('About to call handleApprovalSuccess with withdrawalId:', withdrawalId, 'receiptUrl:', receiptUrl)
+        
+        // Add a small delay to ensure the database update is committed
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        const result = await handleApprovalSuccess(withdrawalId, receiptUrl);
+        console.log('handleApprovalSuccess completed with result:', result)
+        return result;
     } catch (error) {
         console.error('Error in processWithdrawalApproval:', error)
         if (window.openModal) {
@@ -646,20 +910,29 @@ async function processWithdrawalApproval(withdrawalId, receiptFile) {
                 closable: true
             })
         } else {
-            alert('Error approving withdrawal: ' + error.message)
+            alert('Error showing approval modal: ' + error.message)
         }
+    } finally {
+        // Always reset the processing flag
+        isProcessingWithdrawalApproval = false
+        console.log('Reset processing flag to false')
     }
 }
 
 // Handle approval success (extracted to avoid duplication)
 async function handleApprovalSuccess(withdrawalId, receiptUrl) {
+    console.log('handleApprovalSuccess called with withdrawalId:', withdrawalId, 'receiptUrl:', receiptUrl)
+    
     // Get withdrawal data for success modal and notification
-    const { data: updatedWithdrawalData } = await supabaseClient
+    const { data: updatedWithdrawalData, error: fetchError } = await supabaseClient
         .from('withdrawals')
         .select('*')
         .eq('id', withdrawalId)
         .single()
     
+    console.log('Fetched updated withdrawal data:', { updatedWithdrawalData, fetchError })
+    
+    // Show success modal
     if (window.openModal) {
         window.openModal({
             title: 'Success',
@@ -696,23 +969,59 @@ async function handleApprovalSuccess(withdrawalId, receiptUrl) {
         alert('Withdrawal approved successfully!')
     }
     
+    // Try to update existing transaction record to mark withdrawal as approved
+    // This is optional and won't block the approval process
+    if (updatedWithdrawalData) {
+        console.log('Updating transaction record for withdrawal approval:', updatedWithdrawalData.id)
+        try {
+            const { error: transactionError } = await supabaseClient
+                .from('transactions')
+                .update({
+                    description: `Withdrawal approved: ₱${updatedWithdrawalData.amount} via ${updatedWithdrawalData.method === 'gcash' ? 'GCash' : 'Bank Account'}`,
+                    reference: updatedWithdrawalData.reference
+                })
+                .eq('withdrawal_id', updatedWithdrawalData.id)
+                .eq('type', 'withdrawal')
+            
+            if (transactionError) {
+                console.warn('Could not update transaction record (this is optional):', transactionError.message)
+            } else {
+                console.log('Withdrawal transaction record updated successfully')
+            }
+        } catch (error) {
+            console.warn('Transaction update failed (this is optional):', error.message)
+        }
+    }
+    
     // Create notification for user
     if (updatedWithdrawalData) {
-        await createAdminNotification(
+        console.log('Creating notification for user:', updatedWithdrawalData.user_id)
+        const notificationResult = await createAdminNotification(
             updatedWithdrawalData.user_id,
             'Withdrawal Approved',
             `Your withdrawal of ₱${updatedWithdrawalData.amount} via ${updatedWithdrawalData.method === 'gcash' ? 'GCash' : 'Bank Account'} has been approved and processed.`,
             'success'
         )
+        console.log('Notification creation result:', notificationResult)
+    } else {
+        console.log('No updated withdrawal data available for notification')
     }
     
-    // Reload data
-    await loadWithdrawals()
+    // Update local withdrawal data instead of reloading all
+    updateWithdrawalInList(withdrawalId, { status: 'approved', processed_at: new Date().toISOString() })
     renderWithdrawals()
 }
 
 // Reject withdrawal and return funds
 async function rejectWithdrawal(withdrawalId) {
+    // Prevent multiple simultaneous rejections
+    if (isProcessingWithdrawalRejection) {
+        console.log('Already processing withdrawal rejection, ignoring request for:', withdrawalId)
+        return
+    }
+    
+    isProcessingWithdrawalRejection = true
+    
     // Show reason input modal first
     if (window.openModal) {
         window.openModal({
@@ -748,10 +1057,37 @@ async function rejectWithdrawal(withdrawalId) {
                     if (!reason) {
                         document.getElementById('reject-error').textContent = 'Please provide a reason for rejection'
                         document.getElementById('reject-error').style.display = 'block'
-                        return
+                        return false // Keep modal open
                     }
-                    window.closeModal()
+                    
+                    // Disable the button and show processing state
+                    const button = document.querySelector('.modal-primary-btn')
+                    if (button) {
+                        button.disabled = true
+                        button.innerHTML = '<span class="spinner"></span> Processing...'
+                    }
+                    
+                    // Process rejection and handle result
                     processWithdrawalRejection(withdrawalId, reason)
+                        .then(() => {
+                            // Success - modal will be closed by the success modal
+                            return true
+                        })
+                        .catch((error) => {
+                            // Error - modal will be closed by the error modal
+                            console.error('Rejection failed:', error)
+                            return true
+                        })
+                    
+                    return false // Keep modal open during processing
+                }
+            },
+            secondaryButton: {
+                text: 'Cancel',
+                action: () => {
+                    // Reset processing flag if user cancels
+                    isProcessingWithdrawalRejection = false
+                    return true // Close modal
                 }
             },
             closable: true
@@ -968,6 +1304,26 @@ async function processWithdrawalRejection(withdrawalId, reason) {
             return
         }
         
+        // Try to update existing withdrawal transaction record to mark as rejected
+        // This is optional and won't block the rejection process
+        try {
+            const { error: withdrawalTransactionError } = await supabaseClient
+                .from('transactions')
+                .update({
+                    description: `Withdrawal rejected: ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} - Reason: ${reason || 'No reason provided'}`
+                })
+                .eq('withdrawal_id', withdrawalId)
+                .eq('type', 'withdrawal')
+            
+            if (withdrawalTransactionError) {
+                console.warn('Could not update transaction record (this is optional):', withdrawalTransactionError.message)
+            } else {
+                console.log('Transaction record updated successfully')
+            }
+        } catch (error) {
+            console.warn('Transaction update failed (this is optional):', error.message)
+        }
+        
         // Create transaction record for refund
         const { error: transactionError } = await supabaseClient
             .from('transactions')
@@ -975,7 +1331,8 @@ async function processWithdrawalRejection(withdrawalId, reason) {
                 user_id: withdrawalData.user_id,
                 amount: withdrawalData.amount,
                 type: 'refund',
-                description: `Withdrawal refund: ${withdrawalData.method} - ${reason || 'Withdrawal rejected by admin'}`,
+                description: `Withdrawal refund: ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} - Reason: ${reason || 'No reason provided'}`,
+                reference: withdrawalData.reference,
                 created_at: new Date().toISOString()
             })
         
@@ -984,23 +1341,15 @@ async function processWithdrawalRejection(withdrawalId, reason) {
             // Don't fail the refund for transaction errors
         }
         
-        // Create notification for user
-        const { error: notificationError } = await supabaseClient
-            .from('notifications')
-            .insert({
-                user_id: withdrawalData.user_id,
-                title: 'Withdrawal Rejected',
-                message: `Your withdrawal request of ₱${withdrawalData.amount.toFixed(2)} has been rejected. The amount has been refunded to your wallet. Reason: ${reason || 'No reason provided'}`,
-                type: 'warning',
-                created_at: new Date().toISOString()
-            })
-        
-        if (notificationError) {
-            console.error('Error creating notification:', notificationError)
-            // Don't fail the refund for notification errors
-        }
+        // Notification will be created later using createAdminNotification function
         
         console.log('Withdrawal rejected and funds returned successfully')
+        
+        // Close the rejection modal first
+        if (window.closeModal) {
+            window.closeModal()
+        }
+        
         if (window.openModal) {
             window.openModal({
                 title: 'Success',
@@ -1039,16 +1388,22 @@ async function processWithdrawalRejection(withdrawalId, reason) {
         await createAdminNotification(
             withdrawalData.user_id,
             'Withdrawal Rejected',
-            `Your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} was rejected. Reason: ${reason}. The amount has been returned to your wallet.`,
+            `Your withdrawal of ₱${withdrawalData.amount} via ${withdrawalData.method.toUpperCase()} was rejected.\n\nReason: ${reason}\n\nThe amount has been returned to your wallet.`,
             'warning'
         )
         
-        // Reload data
-        await loadWithdrawals()
+        // Update local withdrawal data instead of reloading all
+        updateWithdrawalInList(withdrawalId, { status: 'rejected', processed_at: new Date().toISOString() })
         renderWithdrawals()
         
     } catch (error) {
         console.error('Error rejecting withdrawal:', error)
+        
+        // Close the rejection modal first
+        if (window.closeModal) {
+            window.closeModal()
+        }
+        
         if (window.openModal) {
             window.openModal({
                 title: 'Error',
@@ -1077,12 +1432,57 @@ async function processWithdrawalRejection(withdrawalId, reason) {
         } else {
             alert('Error rejecting withdrawal: ' + error.message)
         }
+    } finally {
+        // Reset processing flag
+        isProcessingWithdrawalRejection = false
+        
+        // Re-enable the button if it was disabled
+        const button = document.querySelector('.modal-primary-btn')
+        if (button && button.disabled) {
+            button.disabled = false
+            button.innerHTML = 'Reject Withdrawal'
+        }
     }
+}
+
+// Reset event listeners (for debugging or re-initialization)
+function resetWithdrawalEventListeners() {
+    withdrawalEventListenersAttached = false
+    console.log('Withdrawal event listeners reset')
+}
+
+// Reset processing flags (for debugging or recovery)
+function resetWithdrawalProcessingFlags() {
+    isProcessingWithdrawalApproval = false
+    isProcessingWithdrawalRejection = false
+    console.log('Withdrawal processing flags reset')
+}
+
+// Initialize admin withdrawals with lazy loading
+async function initializeAdminWithdrawals() {
+    console.log('Initializing admin withdrawals with lazy loading...')
+    
+    // Reset state
+    allWithdrawals = []
+    currentPage = 1
+    hasMoreWithdrawals = true
+    userDataCache.clear()
+    
+    // Load first page
+    await loadWithdrawals(true)
+    
+    // Render with loading state
+    await renderWithdrawals()
+    
+    console.log('Admin withdrawals initialized')
 }
 
 // Export functions for global access
 window.loadAdminWithdrawals = loadWithdrawals
 window.renderAdminWithdrawals = renderWithdrawals
 window.attachWithdrawalEventListeners = attachWithdrawalEventListeners
+window.resetWithdrawalEventListeners = resetWithdrawalEventListeners
+window.resetWithdrawalProcessingFlags = resetWithdrawalProcessingFlags
 window.approveWithdrawal = approveWithdrawal
 window.rejectWithdrawal = rejectWithdrawal
+window.initializeAdminWithdrawals = initializeAdminWithdrawals

@@ -1581,25 +1581,51 @@ async function viewTask(taskId) {
                         ${task.referral_required && task.email_list && task.email_list.length > 0 ? `
                             <div class="task-detail-section">
                                 <h4 class="section-title">Valid Emails (${task.email_list.length})</h4>
-                                <div class="email-list">
-                                    ${task.email_list.map(email => {
-                                        // Check if this email was used
-                                        const emailUsage = window.currentTaskEmailUsage || {}
-                                        const usage = emailUsage[email]
-                                        const isUsed = usage && usage.count > 0
-                                        const usedDate = usage ? new Date(usage.lastUsed).toLocaleDateString() : ''
-                                        
-                                        console.log(`Email ${email}:`, { usage, isUsed, emailUsage })
-                                        
-                                        return `
-                                            <div class="email-item ${isUsed ? 'email-used' : 'email-available'}">
+                                
+                                <!-- Available Emails Section -->
+                                <div class="email-status-section">
+                                    <h5 class="email-status-title available">Available Emails</h5>
+                                    <div class="email-list">
+                                        ${task.email_list.filter(email => {
+                                            const emailUsage = window.currentTaskEmailUsage || {}
+                                            const usage = emailUsage[email]
+                                            return !usage || usage.count === 0
+                                        }).map(email => `
+                                            <div class="email-item email-available">
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/>
                                                     <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"/>
                                                 </svg>
                                                 <div class="email-content">
                                                     <span class="email-address">${email}</span>
-                                                    ${isUsed ? `
+                                                    <span class="email-status available">Available</span>
+                                                </div>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                
+                                <!-- Used Emails Section -->
+                                <div class="email-status-section">
+                                    <h5 class="email-status-title used">Used Emails</h5>
+                                    <div class="email-list">
+                                        ${task.email_list.filter(email => {
+                                            const emailUsage = window.currentTaskEmailUsage || {}
+                                            const usage = emailUsage[email]
+                                            return usage && usage.count > 0
+                                        }).map(email => {
+                                            const emailUsage = window.currentTaskEmailUsage || {}
+                                            const usage = emailUsage[email]
+                                            const usedDate = usage ? new Date(usage.lastUsed).toLocaleDateString() : ''
+                                            
+                                            return `
+                                                <div class="email-item email-used">
+                                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/>
+                                                        <polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"/>
+                                                    </svg>
+                                                    <div class="email-content">
+                                                        <span class="email-address">${email}</span>
                                                         <div class="email-usage-info">
                                                             <span class="email-status used">USED (${usage.count}x, last: ${usedDate})</span>
                                                             <div class="email-users">
@@ -1612,11 +1638,11 @@ async function viewTask(taskId) {
                                                                 `).join('')}
                                                             </div>
                                                         </div>
-                                                    ` : `<span class="email-status available">Available</span>`}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        `
-                                    }).join('')}
+                                            `
+                                        }).join('')}
+                                    </div>
                                 </div>
                             </div>
                         ` : ''}

@@ -114,6 +114,11 @@ async function handleSubmit(e) {
     // Show loading state
     setLoadingState(true)
     
+    // Also show unified loading if available
+    if (window.showDashboardLoading) {
+        window.showDashboardLoading('Creating your account...')
+    }
+    
     try {
         console.log('Attempting registration for:', email)
         
@@ -166,6 +171,11 @@ async function handleSubmit(e) {
     } finally {
         // Hide loading state
         setLoadingState(false)
+        
+        // Hide unified loading if it was shown
+        if (window.hideDashboardLoading) {
+            window.hideDashboardLoading()
+        }
     }
 }
 
