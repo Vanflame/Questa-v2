@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>404 - Page Not Found | Questa</title>
+    <meta name="description" content="The page you're looking for doesn't exist. Return to Questa to continue earning money by completing tasks.">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="application-name" content="Questa">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Questa">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#3b82f6">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/assets/css/styles.css?v=9">
+    <link rel="stylesheet" href="/assets/css/404.css?v=9">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+    <script src="/assets/js/cache-buster.js?v=9"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="landing-header">
+            <div class="container">
+                <div class="landing-nav">
+                    <div class="landing-brand">
+                        <a href="/" class="brand-link">
+                            <img src="/logo.svg" alt="Questa" class="brand-icon" width="48" height="48">
+                            <span class="brand-text">Questa</span>
+                        </a>
+                    </div>
+                    <div class="landing-nav-actions">
+                        <a href="/login" class="btn btn-secondary">Sign In</a>
+                        <a href="/register" class="btn btn-primary">Get Started</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <!-- 404 Main Content -->
+        <main class="error-page">
+            <div class="error-container">
+                <div class="error-content">
+                    <!-- 404 Illustration -->
+                    <div class="error-illustration">
+                        <div class="error-number">
+                            <span class="error-digit">4</span>
+                            <span class="error-digit">0</span>
+                            <span class="error-digit">4</span>
+                        </div>
+                        <div class="error-icon">
+                            <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M12 8V12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M12 16H12.01" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Message -->
+                    <div class="error-message">
+                        <h1 class="error-title">Oops! Page Not Found</h1>
+                        <p class="error-description">
+                            The page you're looking for seems to have wandered off into the digital void. 
+                            Don't worry though - there are plenty of tasks waiting for you back on the main platform!
+                        </p>
+                    </div>
+                    
+                    <!-- Action Buttons -->
+                    <div class="error-actions">
+                        <a href="/" class="btn btn-primary btn-lg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 9L12 2L21 9V20C21 20.5304 20.7893 21.0391 20.4142 21.4142C20.0391 21.7893 19.5304 22 19 22H5C4.46957 22 3.96086 21.7893 3.58579 21.4142C3.21071 21.0391 3 20.5304 3 20V9Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 22V12H15V22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Go Home
+                        </a>
+                        <a href="/dashboard" class="btn btn-secondary btn-lg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 7V5C3 4.44772 3.44772 4 4 4H8C8.55228 4 9 4.44772 9 5V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 7H15V5C15 4.44772 15.4477 4 16 4H20C20.5523 4 21 4.44772 21 5V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M21 7V19C21 19.5523 20.5523 20 20 20H4C3.44772 20 3 19.5523 3 19V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 12H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M9 16H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Dashboard
+                        </a>
+                        <button onclick="history.back()" class="btn btn-outline btn-lg">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19 12H5M12 19L5 12L12 5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Go Back
+                        </button>
+                    </div>
+                    
+                    <!-- Helpful Links -->
+                    <div class="error-help">
+                        <p class="error-help-title">Need help finding something?</p>
+                        <div class="error-help-links">
+                            <a href="/login" class="error-help-link">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M15 3H19C19.5304 3 20.0391 3.21071 20.4142 3.58579C20.7893 3.96086 21 4.46957 21 5V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M10 17L15 12L10 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M15 12H3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Sign In
+                            </a>
+                            <a href="/register" class="error-help-link">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M16 21V19C16 17.9391 15.5786 16.9217 14.8284 16.1716C14.0783 15.4214 13.0609 15 12 15H5C3.93913 15 2.92172 15.4214 2.17157 16.1716C1.42143 16.9217 1 17.9391 1 19V21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M8.5 11C10.7091 11 12.5 9.20914 12.5 7C12.5 4.79086 10.7091 3 8.5 3C6.29086 3 4.5 4.79086 4.5 7C4.5 9.20914 6.29086 11 8.5 11Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M20 8V14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M23 11H17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Sign Up
+                            </a>
+                            <a href="/dashboard" class="error-help-link">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M3 7V5C3 4.44772 3.44772 4 4 4H8C8.55228 4 9 4.44772 9 5V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M9 7H15V5C15 4.44772 15.4477 4 16 4H20C20.5523 4 21 4.44772 21 5V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    <path d="M21 7V19C21 19.5523 20.5523 20 20 20H4C3.44772 20 3 19.5523 3 19V7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                                Dashboard
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Background Animation -->
+                <div class="error-bg-animation">
+                    <div class="floating-element element-1"></div>
+                    <div class="floating-element element-2"></div>
+                    <div class="floating-element element-3"></div>
+                    <div class="floating-element element-4"></div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="container">
+                <div class="footer-content">
+                    <div class="footer-brand">
+                        <div class="footer-logo">
+                            <img src="/logo.svg" alt="Questa" width="40" height="40">
+                            <h3 class="footer-title">Questa</h3>
+                        </div>
+                        <p class="footer-description">
+                            The easiest way to earn money by completing simple tasks online.
+                        </p>
+                    </div>
+                    <div class="footer-links">
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Platform</h4>
+                            <ul class="footer-list">
+                                <li><a href="/dashboard" class="footer-link">Dashboard</a></li>
+                                <li><a href="/login" class="footer-link">Sign In</a></li>
+                                <li><a href="/register" class="footer-link">Sign Up</a></li>
+                            </ul>
+                        </div>
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Support</h4>
+                            <ul class="footer-list">
+                                <li><a href="#" class="footer-link">Help Center</a></li>
+                                <li><a href="#" class="footer-link">Contact Us</a></li>
+                                <li><a href="#" class="footer-link">Privacy Policy</a></li>
+                            </ul>
+                        </div>
+                        <div class="footer-column">
+                            <h4 class="footer-column-title">Company</h4>
+                            <ul class="footer-list">
+                                <li><a href="#" class="footer-link">About Us</a></li>
+                                <li><a href="#" class="footer-link">Terms of Service</a></li>
+                                <li><a href="#" class="footer-link">Careers</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p class="footer-copyright">
+                        © 2024 Questa. All rights reserved.
+                    </p>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // 404 Page Enhancement Script
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add some interactive elements
+            const errorNumber = document.querySelector('.error-number');
+            const errorIcon = document.querySelector('.error-icon');
+            
+            // Animate the 404 number on load
+            setTimeout(() => {
+                errorNumber.style.opacity = '1';
+                errorNumber.style.transform = 'translateY(0)';
+            }, 500);
+            
+            // Animate the icon
+            setTimeout(() => {
+                errorIcon.style.opacity = '1';
+                errorIcon.style.transform = 'scale(1)';
+            }, 800);
+            
+            // Add click animation to buttons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(button => {
+                button.addEventListener('click', function(e) {
+                    // Add ripple effect
+                    const ripple = document.createElement('span');
+                    const rect = this.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    const x = e.clientX - rect.left - size / 2;
+                    const y = e.clientY - rect.top - size / 2;
+                    
+                    ripple.style.cssText = `
+                        position: absolute;
+                        width: ${size}px;
+                        height: ${size}px;
+                        left: ${x}px;
+                        top: ${y}px;
+                        background: rgba(255, 255, 255, 0.3);
+                        border-radius: 50%;
+                        transform: scale(0);
+                        animation: ripple 0.6s linear;
+                        pointer-events: none;
+                    `;
+                    
+                    this.style.position = 'relative';
+                    this.style.overflow = 'hidden';
+                    this.appendChild(ripple);
+                    
+                    setTimeout(() => {
+                        ripple.remove();
+                    }, 600);
+                });
+            });
+            
+            // Add CSS for ripple animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes ripple {
+                    to {
+                        transform: scale(4);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        });
+    </script>
+</body>
+</html>
