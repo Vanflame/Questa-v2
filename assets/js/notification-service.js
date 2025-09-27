@@ -4,12 +4,22 @@ class NotificationService {
     constructor() {
         this.checkInterval = null;
         this.warningInterval = null;
-        this.isSupported = 'Notification' in window;
-        this.permission = Notification.permission;
+        this.isSupported = 'Notification' in window && !this.isAndroid();
+        this.permission = this.isSupported ? Notification.permission : 'denied';
         this.init();
     }
 
+    // Check if running on Android
+    isAndroid() {
+        return /Android/i.test(navigator.userAgent);
+    }
+
     async init() {
+        // Check Android and inform user
+        if (this.isAndroid()) {
+            console.log('📱 Android detected: External notifications not supported. Using in-app notifications only.');
+        }
+
         // Request notification permission
         if (this.isSupported && this.permission === 'default') {
             this.permission = await Notification.requestPermission();

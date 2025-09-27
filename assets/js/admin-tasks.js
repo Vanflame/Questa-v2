@@ -1720,7 +1720,8 @@ function previewModalTaskImage() {
     const previewImg = document.getElementById('modal-preview-img')
     
     if (imageUrl && imageUrl.trim() !== '') {
-        previewImg.src = imageUrl
+        // Use cache buster for image URLs if available
+        previewImg.src = window.CacheBuster ? window.CacheBuster.addCacheBuster(imageUrl) : imageUrl
         previewContainer.style.display = 'block'
         
         // Handle image load error

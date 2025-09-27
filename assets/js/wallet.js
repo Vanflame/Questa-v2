@@ -1190,7 +1190,8 @@ function viewReceipt(receiptUrl) {
 function downloadReceipt(receiptUrl) {
     try {
         const link = document.createElement('a')
-        link.href = receiptUrl
+        // Use cache buster for receipt URLs if available
+        link.href = window.CacheBuster ? window.CacheBuster.addCacheBuster(receiptUrl) : receiptUrl
         link.download = `receipt_${Date.now()}.png`
         link.target = '_blank'
         document.body.appendChild(link)
