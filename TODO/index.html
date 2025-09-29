@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <title>Questa - Task Management Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23FF3B3B'><path d='M12 2L3 7V17C3 19.2 4.8 21 7 21H17C19.2 21 21 19.2 21 17V7L12 2ZM12 4.5L19.5 8.5V17C19.5 18.1 18.6 19 17.5 19H6.5C5.4 19 4.5 18.1 4.5 17V8.5L12 4.5ZM12 9L7 12V16C7 16.6 7.4 17 8 17H16C16.6 17 17 16.6 17 16V12L12 9ZM8.5 13.5L12 15.5L15.5 13.5V15.5H8.5V13.5Z'/></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L3 7V17C3 19.2 4.8 21 7 21H17C19.2 21 21 19.2 21 17V7L12 2ZM12 4.5L19.5 8.5V17C19.5 18.1 18.6 19 17.5 19H6.5C5.4 19 4.5 18.1 4.5 17V8.5L12 4.5ZM12 9L7 12V16C7 16.6 7.4 17 8 17H16C16.6 17 17 16.6 17 16V12L12 9ZM8.5 13.5L12 15.5L15.5 13.5V15.5H8.5V13.5Z"/>
+                    </svg>
+                    <h1>Questa</h1>
+                </div>
+                
+                <div class="search-container">
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+                        </svg>
+                        <input type="text" id="emailSearch" placeholder="Search emails..." class="search-input">
+                    </div>
+                </div>
+                
+                <div class="group-management">
+                    <div class="group-controls">
+                        <button id="addGroupBtn" class="btn btn-sm btn-outline">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            Add Group
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="addEmailBtn" class="btn btn-primary btn-sm">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        Add Email
+                    </button>
+                    <button id="bulkAddEmailsBtn" class="btn btn-secondary btn-sm">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                        Bulk Add
+                    </button>
+                    <button id="applyDefaultTasksBtn" class="btn btn-secondary btn-sm">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+                        </svg>
+                        Apply Tasks
+                    </button>
+                    <button id="settingsBtn" class="btn btn-tertiary btn-sm">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.82,11.69,4.82,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+                        </svg>
+                        Settings
+                    </button>
+                </div>
+            </div>
+            
+            <div class="email-list" id="emailList">
+                <!-- Groups will be populated here -->
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="dashboard-header">
+                <div class="header-content">
+                    <h2 id="selectedEmailTitle">Select an email to view tasks</h2>
+                    <div class="total-score" id="totalScore">
+                        <span class="score-label">Total Score</span>
+                        <span class="score-value" id="scoreValue">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-content" id="dashboardContent">
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                        </svg>
+                    </div>
+                    <h3>Welcome to your Email Task Dashboard</h3>
+                    <p>Select an email from the sidebar to view and manage tasks, or add a new email to get started.</p>
+                </div>
+            </div>
+
+            <div class="email-panel" id="emailPanel" style="display: none;">
+                <div class="panel-header">
+                    <div class="panel-actions">
+                        <button id="markAllDoneBtn" class="btn btn-success">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Mark All Done
+                        </button>
+                        <button id="resetAllBtn" class="btn btn-warning">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            Reset All
+                        </button>
+                        <button id="addTaskBtn" class="btn btn-primary">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                            </svg>
+                            Add Task
+                        </button>
+                        <button id="bulkDeleteBtn" class="btn btn-danger" disabled>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
+                            Delete Selected
+                        </button>
+                        <button id="selectAllBtn" class="btn btn-secondary">
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                            </svg>
+                            Select All
+                        </button>
+                        <button id="bulkMoveBtn" class="btn btn-secondary" disabled>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
+                            Move Selected
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="tasks-container">
+                    <div class="tasks-list" id="tasksList">
+                        <!-- Tasks will be populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Bulk Move Modal -->
+    <div id="bulkMoveModal" class="modal-container">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Move Selected Emails</h3>
+                <button class="modal-close" type="button">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bulkMoveGroupSelect">Move to Group</label>
+                    <select id="bulkMoveGroupSelect" class="form-select">
+                        <option value="">Select a group</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button id="confirmBulkMove" class="btn btn-primary">Move Emails</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Email Modal -->
+    <div id="editEmailModal" class="modal-container">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Email</h3>
+                <button class="modal-close" type="button">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editEmailInput">Email Address</label>
+                    <input type="email" id="editEmailInput" placeholder="Enter email address" required>
+                </div>
+                <div class="form-group">
+                    <label for="editEmailGroupSelect">Group</label>
+                    <select id="editEmailGroupSelect" class="form-select">
+                        <option value="">Select a group</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button id="confirmEditEmail" class="btn btn-primary">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Group Modal -->
+    <div id="addGroupModal" class="modal-container">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add New Group</h3>
+                <button class="modal-close" type="button">
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="groupNameInput">Group Name</label>
+                    <input type="text" id="groupNameInput" placeholder="Enter group name" required>
+                </div>
+                <div class="modal-actions">
+                    <button id="confirmAddGroup" class="btn btn-primary">Add Group</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Email Modal -->
+    <div id="addEmailModal" class="modal-container">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add New Email</h3>
+                    <button class="modal-close" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="emailInput">Email Address</label>
+                        <input type="email" id="emailInput" placeholder="Enter email address" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="emailGroupSelect">Group</label>
+                        <select id="emailGroupSelect" class="form-select">
+                            <option value="">Select a group</option>
+                        </select>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmAddEmail" class="btn btn-primary">Add Email</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Add Emails Modal -->
+    <div id="bulkAddEmailsModal" class="modal-container modal-large">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Bulk Add Emails</h3>
+                    <button class="modal-close" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="bulkEmailsInput">Email Addresses (one per line)</label>
+                        <textarea id="bulkEmailsInput" placeholder="Enter email addresses, one per line:&#10;user1@example.com&#10;user2@example.com&#10;user3@example.com" rows="8"></textarea>
+                        <p class="form-help">Enter one email address per line. Invalid emails will be skipped.</p>
+                    </div>
+                    <div class="form-group">
+                        <label for="bulkEmailGroupSelect">Group</label>
+                        <select id="bulkEmailGroupSelect" class="form-select">
+                            <option value="">Select a group</option>
+                        </select>
+                    </div>
+                    
+                    <div class="bulk-email-preview" id="bulkEmailPreview" style="display: none;">
+                        <h4>Email Preview:</h4>
+                        <div class="email-list-preview" id="emailListPreview"></div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button id="confirmBulkAddEmails" class="btn btn-primary">Add All Emails</button>
+                        <button class="btn btn-secondary modal-close">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Task Modal -->
+    <div id="addTaskModal" class="modal-container">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Add New Task</h3>
+                    <button class="modal-close" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="taskNameInput">Task Name</label>
+                        <input type="text" id="taskNameInput" placeholder="Enter task name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskPointsInput">Points</label>
+                        <input type="number" id="taskPointsInput" placeholder="Points" min="1" value="1" required>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmAddTask" class="btn btn-primary">Add Task</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="defaultTasksModal" class="modal-container modal-large">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Settings & Default Tasks</h3>
+                    <button class="modal-close" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="settings-section">
+                        <h4>Threshold Settings</h4>
+                        <div class="form-group">
+                            <label for="thresholdInput">Threshold Points</label>
+                            <div class="input-with-suffix">
+                                <input type="number" id="thresholdInput" min="1" value="600">
+                                <span class="input-suffix">points</span>
+                            </div>
+                            <p class="form-help">Emails reaching this threshold will be moved to the "Achieved Goals" section.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="settings-section">
+                        <h4>Default Tasks Template</h4>
+                        <p class="form-help">These tasks will be automatically added to new emails.</p>
+                        
+                        <div class="default-tasks-list" id="defaultTasksList">
+                            <!-- Default tasks will be populated here -->
+                        </div>
+                        
+                        <div class="add-task-form">
+                            <h5>Add New Default Task</h5>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="newDefaultTaskName">Task Name</label>
+                                    <input type="text" id="newDefaultTaskName" placeholder="Enter task name">
+                                </div>
+                                <div class="form-group">
+                                    <label for="newDefaultTaskPoints">Points</label>
+                                    <input type="number" id="newDefaultTaskPoints" placeholder="Points" min="1" value="1">
+                                </div>
+                                <button id="addDefaultTaskBtn" class="btn btn-primary">Add</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="modal-actions">
+                        <button id="saveDefaultTasksBtn" class="btn btn-success">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmationModal" class="modal-container">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="confirmationTitle">Confirm Action</h3>
+                    <button class="modal-close" type="button">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="confirmation-content">
+                        <div class="confirmation-icon" id="confirmationIcon">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                        </div>
+                        <p id="confirmationMessage">Are you sure you want to perform this action?</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button id="confirmationCancel" class="btn btn-secondary">Cancel</button>
+                        <button id="confirmationConfirm" class="btn btn-primary">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="modal-container">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="loadingTitle">Processing...</h3>
+            </div>
+            <div class="modal-body">
+                <div class="loading-content">
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                    <div class="loading-message" id="loadingMessage">Please wait while we process your request...</div>
+                    <div class="progress-container" id="progressContainer" style="display: none;">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">0%</div>
+                    </div>
+                    <div class="loading-details" id="loadingDetails"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="notificationToast" class="notification-toast">
+        <div class="toast-content">
+            <div class="toast-icon" id="toastIcon">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+            </div>
+            <div class="toast-message">
+                <div class="toast-title" id="toastTitle">Success</div>
+                <div class="toast-description" id="toastDescription">Action completed successfully</div>
+            </div>
+            <button class="toast-close" id="toastClose">
+                <svg viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
